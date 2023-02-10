@@ -1,0 +1,1407 @@
+﻿<?xml version="1.0" encoding="utf-8" ?>
+<ToastNotification_Config>
+<!--# LICENSE #
+	PowerShell App Deployment Toolkit - Toast Notification Extension.
+	Copyright (C) 2023 - Leonardo Franco Maragna.
+	https://github.com/LFM8787/PSADT.ToastNotification
+-->
+	<!--Configuration File Details-->
+	<Config_File>
+		<Config_Version>1.0</Config_Version>
+		<Config_Date>2023/02/10</Config_Date>
+	</Config_File>
+
+	<!--Toast Notification General Options-->
+	<ToastNotification_Options>
+		<WorkingDirectory>$dirAppDeployTemp</WorkingDirectory>
+		<!-- A valid directory or $variable. Will be created if not exists, will use $dirAppDeployTemp if not valid. -->
+		<TaggingVariable>$installName</TaggingVariable>
+		<!-- A not null tag or $variable. Will use $installName if empty/null. -->
+		<ProtocolName>psadttoastnotification</ProtocolName>
+		<!-- Name of the protocol with which the commands will be launched. Will use "psadttoastnotification" if empty/null.
+			 CAUTION: do not use a known protocol as it can be overwritten in the registry! -->
+		<SubscribeToEvents>True</SubscribeToEvents>
+		<!-- [True/False] - Attempts to register events raised by the Toast Notification object. -->
+
+		<LimitTimeoutToInstallationUI>True</LimitTimeoutToInstallationUI>
+		<!-- [True/False] - If any wrapped function timeout exceeds the defined in the XML configuration, use that value. -->
+
+		<CriticalProcesses_NeverKill>csrss,conhost,explorer,logonui,lsass,lsm,ntoskrnl,powershell,powershell_ise,services,smss,svchost,wininit,winlogon</CriticalProcesses_NeverKill>
+		<!-- Processes that, even if they are included, will not be closed by the Show-InstallationWelcome function. -->
+		<CriticalProcesses_NeverBlock>bcdboot,bcdedit,cacls,ccmexec,cmrcservice,control,credentialuibroker,cscript,csrss,deviceeject,devicepairingwizard,dism,dllhost,drvinst,dwm,explorer,fontdrvhost,gpupdate,hostname,inetinfo,logoff,logonui,lsalso,lsass,lsm,mbamagent,mmc,mshta,msiexec,msmpeng,mssense,ntoskrnl,ntprint,osk,powershell,powershell_ise,presentationfontcache,presentationhost,quickassist,reg,regedit,robocopy,runas,rundll32,runtimebroker,sc,schtasks,scnotifiction,securityhealthservice,sensece,senseir,sensendr,services,sgrmbroker,shutdown,sihost,smartscreen,smss,spoolsv,startmenuexperiencehost,svchost,systemsettingsbroker,taskhostw,textinputhost,timeout,unsecapp,useraccountbroker,userinit,wininit,winload,winlogon,winresume,winrs,winrshost,wlanext,wmiprvse,wowreg32,wscript,wudfhost,wwahost</CriticalProcesses_NeverBlock>
+		<!-- Processes that, even if they are included, will not be blocked by the Block-AppExecution function. -->
+
+		<InstallationWelcome_AlwaysParseMuiCacheAppName>True</InstallationWelcome_AlwaysParseMuiCacheAppName>
+		<!-- [True/False] - Prefer MuiCache application name over -CloseApps description given. -->
+
+		<WelcomePrompt_MaxRunningProcessesRows>5</WelcomePrompt_MaxRunningProcessesRows>
+		<!-- Maximum number of rows with running applications in the Toast Notification. Integer number between 1 and 5. -->
+		<WelcomePrompt_ShowCloseMessageIfCustomMessage>True</WelcomePrompt_ShowCloseMessageIfCustomMessage>
+		<!-- [True/False] - Shows the message warning that applications should be closed after the custom message. -->
+		<WelcomePrompt_ReplaceContinueButtonDeploymentType>True</WelcomePrompt_ReplaceContinueButtonDeploymentType>
+		<!-- [True/False] - Shows the deployment type action instead of the 'Continue' label in the button. -->
+
+		<BlockExecution_TemplateFileName>BlockExecutionToastNotificationTemplate.xml</BlockExecution_TemplateFileName>
+		<!-- Name of the template that contains the blocked applications notification. -->
+
+		<InstallationProgress_ShowIndeterminateProgressBar>True</InstallationProgress_ShowIndeterminateProgressBar>
+		<!-- [True/False] - Defines if a progress bar is displayed simulating a loading or waiting state. -->
+		<!-- <InstallationProgress_ChangeStylePerLine>False</InstallationProgress_ChangeStylePerLine> -->
+		<!-- [True/False] - Defines if each line of the message should change its style or all should keep the initial style. -->
+
+		<InstallationRestartPrompt_ShowIcon>True</InstallationRestartPrompt_ShowIcon>
+		<!-- [True/False] - Shows a warning icon in the restart notification. -->
+	</ToastNotification_Options>
+	<!--Toast Notification General Options-->
+
+	<!--Toast Notification AppId-->
+	<AppId_Options>
+		<AppId>PSADT.ToastNotification</AppId>
+		<!-- Identifier of the application used to display the Toast Notification. -->
+		<DisplayName>$not_empy_variable_or_string_in_this_file</DisplayName>
+		<!-- Display name on Toast Notification used to display it. -->
+		<IconUri>%SystemRoot%\ImmersiveControlPanel\images\logo.png</IconUri>
+		<!-- Location of the icon to display in the notification. -->
+		<IconBackgroundColor>0</IconBackgroundColor>
+		<!-- Icon background color. -->
+		<!-- <LaunchUri></LaunchUri> -->
+		<!-- Removed from final version. -->
+		<!-- URI of the application that is executed when the Toast Notification body is clicked. -->
+		<ShowInSettings>False</ShowInSettings>
+		<!-- [True/False] - Allow registered application to be shown in Settings. -->
+		<AllowContentAboveLock>False</AllowContentAboveLock>
+		<!-- [True/False] - Allow Toast Notifications to show its content on lock screen. -->
+		<ShowInActionCenter>False</ShowInActionCenter>
+		<!-- [True/False] - Allow Toast Notifications to stay in the Action Center. -->
+	</AppId_Options>
+	<!--Toast Notification AppId-->
+
+	<!--Toast Notification Scripts-->
+	<Scripts_Options>
+		<ScriptsEnabledOrder>cmd</ScriptsEnabledOrder>
+		<!-- Order of execution and testing of enabled scripts, sepparated by comma.
+			 CAUTION: VBS is not working as expected! -->
+		<CommandCMD>"$($configToastNotificationGeneralOptions.WorkingDirectory)\$($configToastNotificationGeneralOptions.ProtocolName)\$($configToastNotificationGeneralOptions.ProtocolName).cmd" %1</CommandCMD>
+		<!-- Command executed by the protocol for the CMD script case. -->
+		<CommandVBS>"$($envWinDir)\System32\WScript.exe" //Nologo //B "$($configToastNotificationGeneralOptions.WorkingDirectory)\$($configToastNotificationGeneralOptions.ProtocolName)\$($configToastNotificationGeneralOptions.ProtocolName).vbs" %1</CommandVBS>
+		<!-- Command executed by the protocol for the VBS script case. -->
+		<ScriptVBS>
+			Set FSO = WScript.CreateObject(&quot;Scripting.FileSystemObject&quot;)
+
+			Function CreateFolderRecursive(FullPath)
+			  arr = split(FullPath, &quot;\&quot;)
+			  path = &quot;&quot;
+			  For Each dir In arr
+				If path &lt;&gt; &quot;&quot; Then path = path &amp; &quot;\&quot;
+				path = path &amp; dir
+				If FSO.FolderExists(path) = False Then FSO.CreateFolder(path)
+			  Next
+			End Function
+
+			ProtocolEnd = InStr(WScript.Arguments(0),&quot;:&quot;)
+			LocalPath = Mid(WScript.Arguments(0), ProtocolEnd + 1)
+			TaggingVariableEnd = InStr(LocalPath,&quot;?&quot;)
+
+			Protocol = Mid(WScript.Arguments(0), 1, ProtocolEnd - 1)
+			TaggingVariable = Mid(LocalPath, 1, TaggingVariableEnd - 1)
+			Result = Mid(LocalPath, TaggingVariableEnd + 1)
+
+			WorkingDirectory = &quot;{0}&quot;
+			Folder = WorkingDirectory &amp; &quot;\&quot; &amp; Protocol &amp; &quot;\&quot; &amp; TaggingVariable
+			File = Folder &amp; &quot;\&quot; &amp; Result &amp; &quot;.tag&quot;
+
+			CreateFolderRecursive Folder
+			FSO.CreateTextFile File,True
+			</ScriptVBS>
+		<ScriptCMD>
+			@SET &quot;Argument=%1&quot;
+			@SET LocalPath=%Argument:*:=%
+			@CALL SET Protocol=%%Argument::%LocalPath%=%%
+			@SET Result=%LocalPath:*?=%
+			@CALL SET TaggingVariable=%%LocalPath:?%Result%=%%
+
+			@SET &quot;WorkingDirectory={0}&quot;
+			@SET &quot;Folder=%WorkingDirectory%\%Protocol%\%TaggingVariable%&quot;
+			@SET &quot;File=%Folder%\%Result%.tag&quot;
+
+			@IF NOT EXIST &quot;%Folder%&quot; ( MD &quot;%Folder%&quot; &amp;&amp; .&gt;&quot;%File%&quot; 2&gt;NUL ) ELSE ( .&gt;&quot;%File%&quot; 2&gt;NUL )
+			@EXIT
+			</ScriptCMD>
+	</Scripts_Options>
+	<!--Toast Notification Scripts-->
+
+	<!--Toast Notification Welcome Prompt Options-->
+	<WelcomePrompt_Options>
+		<UpdateInterval>3</UpdateInterval>
+		<!-- Interval in seconds at which the notification is updated. Integer number between 1 and 10. -->
+		<ShowAttributionText>True</ShowAttributionText>
+		<!-- [True/False] - Shows a small text indicating the automatic action of the toast notification when there is no countdown. -->
+
+		<ImageHeroShow>True</ImageHeroShow>
+		<!-- [True/False] - Defines if the top header image of the notification is shown. -->
+		<ImageHeroFileName>WelcomePrompt_Hero.gif</ImageHeroFileName>
+		<!-- Top header image filename and extension, located in the .\SupportFiles\PSADT.ToastNotification folder. -->
+		<ImageAppLogoOverrideShow>False</ImageAppLogoOverrideShow>
+		<!-- [True/False] - Defines if the internal image of the notification is shown. -->
+		<ImageAppLogoOverrideFileName>WelcomePrompt_AppLogoOverride.gif</ImageAppLogoOverrideFileName>
+		<!-- Internal image filename and extension, located in the .\SupportFiles\PSADT.ToastNotification folder. -->
+		<ImageAppLogoOverrideCircularCrop>True</ImageAppLogoOverrideCircularCrop>
+		<!-- [True/False] - Defines if the internal image will be crop in a circular figure. -->
+
+		<ShowApplicationsIcons>True</ShowApplicationsIcons>
+		<!-- [True/False] - Shows the applications icons (if apply). -->
+		<ApplicationsIconsSize>ExtraLarge</ApplicationsIconsSize>
+		<!-- [Small|Large|ExtraLarge|Biggest] Sets the size of the applications icons, corresponding to 16x16, 32x32 and 48x48 at 100% scale factor. Default: ExtraLarge. -->
+		<CollapseApplicationsIcons>False</CollapseApplicationsIcons>
+		<!-- [True/False] - Reduces the applications icons margins (if apply). -->
+		<ShowExtendedApplicationsInformation>True</ShowExtendedApplicationsInformation>
+		<!-- [True/False] - Shows extended information per application, like MainWindowsTitle, Description, Company (if apply). -->
+		<ShowDialogIconAsAppLogoOverride>False</ShowDialogIconAsAppLogoOverride>
+		<!-- [True/False] - Replaces the AppLogoOverride image with the Dialog icon (if apply). -->
+		<DialogsIconsSize>Large</DialogsIconsSize>
+		<!-- [Small|Large|ExtraLarge|Biggest] Sets the size of the icons used by dialogs, corresponding to 16x16, 32x32 and 48x48 at 100% scale factor. Default: Large. -->
+		<CollapseDialogsIcons>True</CollapseDialogsIcons>
+		<!-- [True/False] - Reduces the dialogs icons margins (if apply). -->
+
+		<AudioSource>ms-winsoundevent:Notification.Looping.Alarm4</AudioSource>
+		<!-- Sound file to play when displaying the notification or any of the system defined below:
+			ms-winsoundevent:Notification.Looping.Alarm
+			ms-winsoundevent:Notification.Looping.Alarm2
+			ms-winsoundevent:Notification.Looping.Alarm3
+			ms-winsoundevent:Notification.Looping.Alarm4
+			ms-winsoundevent:Notification.Looping.Alarm5
+			ms-winsoundevent:Notification.Looping.Alarm6
+			ms-winsoundevent:Notification.Looping.Alarm7
+			ms-winsoundevent:Notification.Looping.Alarm8
+			ms-winsoundevent:Notification.Looping.Alarm9
+			ms-winsoundevent:Notification.Looping.Alarm10 -->
+		<AudioLoop>False</AudioLoop>
+		<!-- [True/False] - Defines if the sound is played in an indefinite loop. -->
+		<AudioSilent>True</AudioSilent>
+		<!-- [True/False] - If this value is true, then no sound will be played. -->
+	</WelcomePrompt_Options>
+	<!--Toast Notification Welcome Prompt Options-->
+
+	<!--Toast Notification Balloon Tip Options-->
+	<BalloonTip_Options>
+		<!-- <UpdateInterval>3</UpdateInterval> -->
+		<!-- <ShowAttributionText>False</ShowAttributionText> -->
+
+		<ImageHeroShow>False</ImageHeroShow>
+		<ImageHeroFileName>BalloonTip_Hero.gif</ImageHeroFileName>
+		<ImageAppLogoOverrideShow>True</ImageAppLogoOverrideShow>
+		<ImageAppLogoOverrideFileName>BalloonTip_AppLogoOverride.gif</ImageAppLogoOverrideFileName>
+		<ImageAppLogoOverrideCircularCrop>True</ImageAppLogoOverrideCircularCrop>
+
+		<!-- <ShowApplicationsIcons>True</ShowApplicationsIcons> -->
+		<!-- <ApplicationsIconsSize>ExtraLarge</ApplicationsIconsSize> -->
+		<!-- <CollapseApplicationsIcons>False</CollapseApplicationsIcons> -->
+		<!-- <ShowExtendedApplicationsInformation>True</ShowExtendedApplicationsInformation> -->
+		<ShowDialogIconAsAppLogoOverride>True</ShowDialogIconAsAppLogoOverride>
+		<DialogsIconsSize>Large</DialogsIconsSize>
+		<CollapseDialogsIcons>True</CollapseDialogsIcons>
+
+		<AudioSource>ms-winsoundevent:Notification.Default</AudioSource>
+		<!-- Sound file to play when displaying the notification or any of the system defined below:
+			ms-winsoundevent:Notification.Default
+			ms-winsoundevent:Notification.IM
+			ms-winsoundevent:Notification.Mail
+			ms-winsoundevent:Notification.Reminder
+			ms-winsoundevent:Notification.SMS
+			ms-winsoundevent:Notification.Looping.Alarm
+			ms-winsoundevent:Notification.Looping.Alarm2
+			ms-winsoundevent:Notification.Looping.Alarm3
+			ms-winsoundevent:Notification.Looping.Alarm4
+			ms-winsoundevent:Notification.Looping.Alarm5
+			ms-winsoundevent:Notification.Looping.Alarm6
+			ms-winsoundevent:Notification.Looping.Alarm7
+			ms-winsoundevent:Notification.Looping.Alarm8
+			ms-winsoundevent:Notification.Looping.Alarm9
+			ms-winsoundevent:Notification.Looping.Alarm10
+			ms-winsoundevent:Notification.Looping.Call
+			ms-winsoundevent:Notification.Looping.Call2
+			ms-winsoundevent:Notification.Looping.Call3
+			ms-winsoundevent:Notification.Looping.Call4
+			ms-winsoundevent:Notification.Looping.Call5
+			ms-winsoundevent:Notification.Looping.Call6
+			ms-winsoundevent:Notification.Looping.Call7
+			ms-winsoundevent:Notification.Looping.Call8
+			ms-winsoundevent:Notification.Looping.Call9
+			ms-winsoundevent:Notification.Looping.Call10 -->
+		<AudioLoop>False</AudioLoop>
+		<AudioSilent>True</AudioSilent>
+	</BalloonTip_Options>
+	<!--Toast Notification Balloon Tip Options-->
+
+	<!--Toast Notification Dialog Box Options-->
+	<DialogBox_Options>
+		<UpdateInterval>3</UpdateInterval>
+		<ShowAttributionText>True</ShowAttributionText>
+
+		<ImageHeroShow>False</ImageHeroShow>
+		<ImageHeroFileName>DialogBox_Hero.gif</ImageHeroFileName>
+		<ImageAppLogoOverrideShow>True</ImageAppLogoOverrideShow>
+		<ImageAppLogoOverrideFileName>DialogBox_AppLogoOverride.gif</ImageAppLogoOverrideFileName>
+		<ImageAppLogoOverrideCircularCrop>True</ImageAppLogoOverrideCircularCrop>
+
+		<!-- <ShowApplicationsIcons>True</ShowApplicationsIcons> -->
+		<!-- <ApplicationsIconsSize>ExtraLarge</ApplicationsIconsSize> -->
+		<!-- <CollapseApplicationsIcons>False</CollapseApplicationsIcons> -->
+		<!-- <ShowExtendedApplicationsInformation>True</ShowExtendedApplicationsInformation> -->
+		<ShowDialogIconAsAppLogoOverride>True</ShowDialogIconAsAppLogoOverride>
+		<DialogsIconsSize>Large</DialogsIconsSize>
+		<CollapseDialogsIcons>False</CollapseDialogsIcons>
+
+		<AudioSource>ms-winsoundevent:Notification.Default</AudioSource>
+		<!-- Sound file to play when displaying the notification or any of the system defined below:
+			ms-winsoundevent:Notification.Looping.Alarm
+			ms-winsoundevent:Notification.Looping.Alarm2
+			ms-winsoundevent:Notification.Looping.Alarm3
+			ms-winsoundevent:Notification.Looping.Alarm4
+			ms-winsoundevent:Notification.Looping.Alarm5
+			ms-winsoundevent:Notification.Looping.Alarm6
+			ms-winsoundevent:Notification.Looping.Alarm7
+			ms-winsoundevent:Notification.Looping.Alarm8
+			ms-winsoundevent:Notification.Looping.Alarm9
+			ms-winsoundevent:Notification.Looping.Alarm10 -->
+		<AudioLoop>False</AudioLoop>
+		<AudioSilent>True</AudioSilent>
+	</DialogBox_Options>
+	<!--Toast Notification Dialog Box Options-->
+
+	<!--Toast Notification Installation Restart Prompt Options-->
+	<InstallationRestartPrompt_Options>
+		<UpdateInterval>10</UpdateInterval>
+		<ShowAttributionText>True</ShowAttributionText>
+
+		<ImageHeroShow>True</ImageHeroShow>
+		<ImageHeroFileName>InstallationRestartPrompt_Hero.gif</ImageHeroFileName>
+		<ImageAppLogoOverrideShow>False</ImageAppLogoOverrideShow>
+		<ImageAppLogoOverrideFileName>InstallationRestartPrompt_AppLogoOverride.gif</ImageAppLogoOverrideFileName>
+		<ImageAppLogoOverrideCircularCrop>True</ImageAppLogoOverrideCircularCrop>
+
+		<!-- <ShowApplicationsIcons>True</ShowApplicationsIcons> -->
+		<!-- <ApplicationsIconsSize>ExtraLarge</ApplicationsIconsSize> -->
+		<!-- <CollapseApplicationsIcons>False</CollapseApplicationsIcons> -->
+		<!-- <ShowExtendedApplicationsInformation>True</ShowExtendedApplicationsInformation> -->
+		<ShowDialogIconAsAppLogoOverride>False</ShowDialogIconAsAppLogoOverride>
+		<DialogsIconsSize>ExtraLarge</DialogsIconsSize>
+		<CollapseDialogsIcons>False</CollapseDialogsIcons>
+
+		<AudioSource>ms-winsoundevent:Notification.Default</AudioSource>
+		<!-- Sound file to play when displaying the notification or any of the system defined below:
+			ms-winsoundevent:Notification.Default
+			ms-winsoundevent:Notification.IM
+			ms-winsoundevent:Notification.Mail
+			ms-winsoundevent:Notification.Reminder
+			ms-winsoundevent:Notification.SMS
+			ms-winsoundevent:Notification.Looping.Alarm
+			ms-winsoundevent:Notification.Looping.Alarm2
+			ms-winsoundevent:Notification.Looping.Alarm3
+			ms-winsoundevent:Notification.Looping.Alarm4
+			ms-winsoundevent:Notification.Looping.Alarm5
+			ms-winsoundevent:Notification.Looping.Alarm6
+			ms-winsoundevent:Notification.Looping.Alarm7
+			ms-winsoundevent:Notification.Looping.Alarm8
+			ms-winsoundevent:Notification.Looping.Alarm9
+			ms-winsoundevent:Notification.Looping.Alarm10
+			ms-winsoundevent:Notification.Looping.Call
+			ms-winsoundevent:Notification.Looping.Call2
+			ms-winsoundevent:Notification.Looping.Call3
+			ms-winsoundevent:Notification.Looping.Call4
+			ms-winsoundevent:Notification.Looping.Call5
+			ms-winsoundevent:Notification.Looping.Call6
+			ms-winsoundevent:Notification.Looping.Call7
+			ms-winsoundevent:Notification.Looping.Call8
+			ms-winsoundevent:Notification.Looping.Call9
+			ms-winsoundevent:Notification.Looping.Call10 -->
+		<AudioLoop>False</AudioLoop>
+		<AudioSilent>True</AudioSilent>
+	</InstallationRestartPrompt_Options>
+	<!--Toast Notification Installation Restart Prompt Options-->
+
+	<!--Toast Notification Installation Prompt Options-->
+	<InstallationPrompt_Options>
+		<UpdateInterval>10</UpdateInterval>
+		<ShowAttributionText>True</ShowAttributionText>
+
+		<ImageHeroShow>True</ImageHeroShow>
+		<ImageHeroFileName>InstallationPrompt_Hero.gif</ImageHeroFileName>
+		<ImageAppLogoOverrideShow>False</ImageAppLogoOverrideShow>
+		<ImageAppLogoOverrideFileName>InstallationPrompt_AppLogoOverride.gif</ImageAppLogoOverrideFileName>
+		<ImageAppLogoOverrideCircularCrop>True</ImageAppLogoOverrideCircularCrop>
+
+		<!-- <ShowApplicationsIcons>True</ShowApplicationsIcons> -->
+		<!-- <ApplicationsIconsSize>ExtraLarge</ApplicationsIconsSize> -->
+		<!-- <CollapseApplicationsIcons>False</CollapseApplicationsIcons> -->
+		<!-- <ShowExtendedApplicationsInformation>True</ShowExtendedApplicationsInformation> -->
+		<ShowDialogIconAsAppLogoOverride>False</ShowDialogIconAsAppLogoOverride>
+		<DialogsIconsSize>Large</DialogsIconsSize>
+		<CollapseDialogsIcons>True</CollapseDialogsIcons>
+
+		<AudioSource>ms-winsoundevent:Notification.Default</AudioSource>
+		<!-- Sound file to play when displaying the notification or any of the system defined below:
+			ms-winsoundevent:Notification.Looping.Alarm
+			ms-winsoundevent:Notification.Looping.Alarm2
+			ms-winsoundevent:Notification.Looping.Alarm3
+			ms-winsoundevent:Notification.Looping.Alarm4
+			ms-winsoundevent:Notification.Looping.Alarm5
+			ms-winsoundevent:Notification.Looping.Alarm6
+			ms-winsoundevent:Notification.Looping.Alarm7
+			ms-winsoundevent:Notification.Looping.Alarm8
+			ms-winsoundevent:Notification.Looping.Alarm9
+			ms-winsoundevent:Notification.Looping.Alarm10 -->
+		<AudioLoop>False</AudioLoop>
+		<AudioSilent>True</AudioSilent>
+	</InstallationPrompt_Options>
+	<!--Toast Notification Installation Prompt Options-->
+
+	<!--Toast Notification Installation Progress Options-->
+	<InstallationProgress_Options>
+		<UpdateInterval>3</UpdateInterval>
+		<ShowAttributionText>True</ShowAttributionText>
+
+		<ImageHeroShow>False</ImageHeroShow>
+		<ImageHeroFileName>InstallationProgress_Hero.gif</ImageHeroFileName>
+		<ImageAppLogoOverrideShow>False</ImageAppLogoOverrideShow>
+		<ImageAppLogoOverrideFileName>InstallationProgress_AppLogoOverride.gif</ImageAppLogoOverrideFileName>
+		<ImageAppLogoOverrideCircularCrop>True</ImageAppLogoOverrideCircularCrop>
+
+		<!-- <ShowApplicationsIcons>True</ShowApplicationsIcons> -->
+		<!-- <ApplicationsIconsSize>ExtraLarge</ApplicationsIconsSize> -->
+		<!-- <CollapseApplicationsIcons>False</CollapseApplicationsIcons> -->
+		<!-- <ShowExtendedApplicationsInformation>True</ShowExtendedApplicationsInformation> -->
+		<!-- <ShowDialogIconAsAppLogoOverride>False</ShowDialogIconAsAppLogoOverride> -->
+		<!-- <DialogsIconsSize>Large</DialogsIconsSize> -->
+		<!-- <CollapseDialogsIcons>True</CollapseDialogsIcons> -->
+
+		<AudioSource>ms-winsoundevent:Notification.Looping.Call</AudioSource>
+		<!-- Sound file to play when displaying the notification or any of the system defined below:
+			ms-winsoundevent:Notification.Default
+			ms-winsoundevent:Notification.IM
+			ms-winsoundevent:Notification.Mail
+			ms-winsoundevent:Notification.Reminder
+			ms-winsoundevent:Notification.SMS
+			ms-winsoundevent:Notification.Looping.Alarm
+			ms-winsoundevent:Notification.Looping.Alarm2
+			ms-winsoundevent:Notification.Looping.Alarm3
+			ms-winsoundevent:Notification.Looping.Alarm4
+			ms-winsoundevent:Notification.Looping.Alarm5
+			ms-winsoundevent:Notification.Looping.Alarm6
+			ms-winsoundevent:Notification.Looping.Alarm7
+			ms-winsoundevent:Notification.Looping.Alarm8
+			ms-winsoundevent:Notification.Looping.Alarm9
+			ms-winsoundevent:Notification.Looping.Alarm10
+			ms-winsoundevent:Notification.Looping.Call
+			ms-winsoundevent:Notification.Looping.Call2
+			ms-winsoundevent:Notification.Looping.Call3
+			ms-winsoundevent:Notification.Looping.Call4
+			ms-winsoundevent:Notification.Looping.Call5
+			ms-winsoundevent:Notification.Looping.Call6
+			ms-winsoundevent:Notification.Looping.Call7
+			ms-winsoundevent:Notification.Looping.Call8
+			ms-winsoundevent:Notification.Looping.Call9
+			ms-winsoundevent:Notification.Looping.Call10 -->
+		<AudioLoop>False</AudioLoop>
+		<AudioSilent>True</AudioSilent>
+	</InstallationProgress_Options>
+	<!--Toast Notification Installation Progress Options-->
+
+	<!--Toast Notification Block Execution Options-->
+	<BlockExecution_Options>
+		<!-- <UpdateInterval>3</UpdateInterval> -->
+		<!-- <ShowAttributionText>True</ShowAttributionText> -->
+
+		<ImageHeroShow>True</ImageHeroShow>
+		<ImageHeroFileName>BlockExecution_Hero.gif</ImageHeroFileName>
+		<ImageAppLogoOverrideShow>False</ImageAppLogoOverrideShow>
+		<ImageAppLogoOverrideFileName>BlockExecution_AppLogoOverride.gif</ImageAppLogoOverrideFileName>
+		<ImageAppLogoOverrideCircularCrop>True</ImageAppLogoOverrideCircularCrop>
+
+		<ShowApplicationsIcons>True</ShowApplicationsIcons>
+		<ApplicationsIconsSize>Biggest</ApplicationsIconsSize>
+		<CollapseApplicationsIcons>False</CollapseApplicationsIcons>
+		<ShowExtendedApplicationsInformation>True</ShowExtendedApplicationsInformation>
+		<ShowDialogIconAsAppLogoOverride>False</ShowDialogIconAsAppLogoOverride>
+		<DialogsIconsSize>ExtraLarge</DialogsIconsSize>
+		<CollapseDialogsIcons>True</CollapseDialogsIcons>
+
+		<AudioSource>ms-winsoundevent:Notification.Default</AudioSource>
+		<!-- Sound file to play when displaying the notification or any of the system defined below:
+			ms-winsoundevent:Notification.Default
+			ms-winsoundevent:Notification.IM
+			ms-winsoundevent:Notification.Mail
+			ms-winsoundevent:Notification.Reminder
+			ms-winsoundevent:Notification.SMS
+			ms-winsoundevent:Notification.Looping.Alarm
+			ms-winsoundevent:Notification.Looping.Alarm2
+			ms-winsoundevent:Notification.Looping.Alarm3
+			ms-winsoundevent:Notification.Looping.Alarm4
+			ms-winsoundevent:Notification.Looping.Alarm5
+			ms-winsoundevent:Notification.Looping.Alarm6
+			ms-winsoundevent:Notification.Looping.Alarm7
+			ms-winsoundevent:Notification.Looping.Alarm8
+			ms-winsoundevent:Notification.Looping.Alarm9
+			ms-winsoundevent:Notification.Looping.Alarm10
+			ms-winsoundevent:Notification.Looping.Call
+			ms-winsoundevent:Notification.Looping.Call2
+			ms-winsoundevent:Notification.Looping.Call3
+			ms-winsoundevent:Notification.Looping.Call4
+			ms-winsoundevent:Notification.Looping.Call5
+			ms-winsoundevent:Notification.Looping.Call6
+			ms-winsoundevent:Notification.Looping.Call7
+			ms-winsoundevent:Notification.Looping.Call8
+			ms-winsoundevent:Notification.Looping.Call9
+			ms-winsoundevent:Notification.Looping.Call10 -->
+		<AudioLoop>False</AudioLoop>
+		<AudioSilent>True</AudioSilent>
+	</BlockExecution_Options>
+	<!--Toast Notification Block Execution Options-->
+
+	<!-- UI Toast Notification Messages - English -->
+	<UI_Messages_EN>
+		<AttributionTextAutoContinue>This message will auto-dismiss in {0}.</AttributionTextAutoContinue>
+		<RemainingTimeHours>hours</RemainingTimeHours>
+		<RemainingTimeHour>hour</RemainingTimeHour>
+		<RemainingTimeMinutes>minutes</RemainingTimeMinutes>
+		<RemainingTimeMinute>minute</RemainingTimeMinute>
+		<DeploymentTypeInstall>Install</DeploymentTypeInstall>
+		<DeploymentTypeUninstall>Uninstall</DeploymentTypeUninstall>
+		<DeploymentTypeRepair>Repair</DeploymentTypeRepair>
+
+		<WelcomePrompt_WelcomeMessage>The application {0} process is about to start.</WelcomePrompt_WelcomeMessage>
+		<WelcomePrompt_CloseMessageSingular>The following running application must be closed before and during the process:</WelcomePrompt_CloseMessageSingular>
+		<WelcomePrompt_CloseMessagePlural>The following {0} running applications must be closed before and during the process:</WelcomePrompt_CloseMessagePlural>
+		<WelcomePrompt_AttributionTextAutoDeferral>The {0} will auto-defer in {1}.</WelcomePrompt_AttributionTextAutoDeferral>
+		<WelcomePrompt_ProgressBarTitleSingular>Please, close the following application:</WelcomePrompt_ProgressBarTitleSingular>
+		<WelcomePrompt_ProgressBarTitlePlural>Please, close the following applications:</WelcomePrompt_ProgressBarTitlePlural>
+		<WelcomePrompt_ProgressBarStatus>Automatic closing in:</WelcomePrompt_ProgressBarStatus>
+		<WelcomePrompt_MoreApplicationsMessage>{0} running applications:</WelcomePrompt_MoreApplicationsMessage>
+		<WelcomePrompt_RemainingDeferrals>Remaining deferrals: {0}</WelcomePrompt_RemainingDeferrals>
+		<WelcomePrompt_DeferMessage>You can defer the {0} to another time...</WelcomePrompt_DeferMessage>
+		<WelcomePrompt_DeferMessageDeadline>Deferral deadline: {0}</WelcomePrompt_DeferMessageDeadline>
+		<WelcomePrompt_DeferMessageDeadlineWarning>Once this period has expired, you will not be able to postpone the {0}.</WelcomePrompt_DeferMessageDeadlineWarning>
+		<WelcomePrompt_ButtonCloseSingular>Close application</WelcomePrompt_ButtonCloseSingular>
+		<WelcomePrompt_ButtonClosePlural>Close applications</WelcomePrompt_ButtonClosePlural>
+		<WelcomePrompt_ButtonContinue>Continue</WelcomePrompt_ButtonContinue>
+		<WelcomePrompt_ButtonDefer>Another time</WelcomePrompt_ButtonDefer>
+
+		<BlockExecution_CloseMessage>The following application must stay closed during the {0} process:</BlockExecution_CloseMessage>
+		<BlockExecution_BlockMessageSingular>The execution of this application has been temporarily blocked, when the {0} process ends it can be used again normally.</BlockExecution_BlockMessageSingular>
+		<BlockExecution_BlockMessagePlural>The execution of these {0} applications has been temporarily blocked, when the {1} process ends, they can be used again normally:</BlockExecution_BlockMessagePlural>
+		<BlockExecution_MoreApplicationsMessage>+ {0} more applications...</BlockExecution_MoreApplicationsMessage>
+
+		<RestartPrompt_RestartMessage>For the process to complete, the computer needs to be restarted.</RestartPrompt_RestartMessage>
+		<RestartPrompt_AttributionText>It will automatically restart at {0}.</RestartPrompt_AttributionText>
+		<RestartPrompt_ProgressBarTitle>The process requires a restart...</RestartPrompt_ProgressBarTitle>
+		<RestartPrompt_ProgressBarStatus>Remaining Time:</RestartPrompt_ProgressBarStatus>
+		<RestartPrompt_AutoRestartMessage>The device will automatically reboot at the end of the countdown.</RestartPrompt_AutoRestartMessage>
+		<RestartPrompt_SaveMessage>Please, save all your work and restart your computer within the allotted time.</RestartPrompt_SaveMessage>
+		<RestartPrompt_ButtonRestartLater>Minimize</RestartPrompt_ButtonRestartLater>
+		<RestartPrompt_ButtonRestartNow>Restart Now</RestartPrompt_ButtonRestartNow>
+	</UI_Messages_EN>
+
+	<!-- UI Toast Notification Messages - Danish -->
+	<UI_Messages_DA>
+		<AttributionTextAutoContinue>This message will auto-dismiss in {0}.</AttributionTextAutoContinue>
+		<RemainingTimeHours>hours</RemainingTimeHours>
+		<RemainingTimeHour>hour</RemainingTimeHour>
+		<RemainingTimeMinutes>minutes</RemainingTimeMinutes>
+		<RemainingTimeMinute>minute</RemainingTimeMinute>
+		<DeploymentTypeInstall>Install</DeploymentTypeInstall>
+		<DeploymentTypeUninstall>Uninstall</DeploymentTypeUninstall>
+		<DeploymentTypeRepair>Repair</DeploymentTypeRepair>
+
+		<WelcomePrompt_WelcomeMessage>The application {0} process is about to start.</WelcomePrompt_WelcomeMessage>
+		<WelcomePrompt_CloseMessageSingular>The following running application must be closed before and during the process:</WelcomePrompt_CloseMessageSingular>
+		<WelcomePrompt_CloseMessagePlural>The following {0} running applications must be closed before and during the process:</WelcomePrompt_CloseMessagePlural>
+		<WelcomePrompt_AttributionTextAutoDeferral>The {0} will auto-defer in {1}.</WelcomePrompt_AttributionTextAutoDeferral>
+		<WelcomePrompt_ProgressBarTitleSingular>Please, close the following application:</WelcomePrompt_ProgressBarTitleSingular>
+		<WelcomePrompt_ProgressBarTitlePlural>Please, close the following applications:</WelcomePrompt_ProgressBarTitlePlural>
+		<WelcomePrompt_ProgressBarStatus>Automatic closing in:</WelcomePrompt_ProgressBarStatus>
+		<WelcomePrompt_MoreApplicationsMessage>{0} running applications:</WelcomePrompt_MoreApplicationsMessage>
+		<WelcomePrompt_RemainingDeferrals>Remaining deferrals: {0}</WelcomePrompt_RemainingDeferrals>
+		<WelcomePrompt_DeferMessage>You can defer the {0} to another time...</WelcomePrompt_DeferMessage>
+		<WelcomePrompt_DeferMessageDeadline>Deferral deadline: {0}</WelcomePrompt_DeferMessageDeadline>
+		<WelcomePrompt_DeferMessageDeadlineWarning>Once this period has expired, you will not be able to postpone the {0}.</WelcomePrompt_DeferMessageDeadlineWarning>
+		<WelcomePrompt_ButtonCloseSingular>Close application</WelcomePrompt_ButtonCloseSingular>
+		<WelcomePrompt_ButtonClosePlural>Close applications</WelcomePrompt_ButtonClosePlural>
+		<WelcomePrompt_ButtonContinue>Continue</WelcomePrompt_ButtonContinue>
+		<WelcomePrompt_ButtonDefer>Another time</WelcomePrompt_ButtonDefer>
+
+		<BlockExecution_CloseMessage>The following application must stay closed during the {0} process:</BlockExecution_CloseMessage>
+		<BlockExecution_BlockMessageSingular>The execution of this application has been temporarily blocked, when the {0} process ends it can be used again normally.</BlockExecution_BlockMessageSingular>
+		<BlockExecution_BlockMessagePlural>The execution of these {0} applications has been temporarily blocked, when the {1} process ends, they can be used again normally:</BlockExecution_BlockMessagePlural>
+		<BlockExecution_MoreApplicationsMessage>+ {0} more applications...</BlockExecution_MoreApplicationsMessage>
+
+		<RestartPrompt_RestartMessage>For the process to complete, the computer needs to be restarted.</RestartPrompt_RestartMessage>
+		<RestartPrompt_AttributionText>It will automatically restart at {0}.</RestartPrompt_AttributionText>
+		<RestartPrompt_ProgressBarTitle>The process requires a restart...</RestartPrompt_ProgressBarTitle>
+		<RestartPrompt_ProgressBarStatus>Remaining Time:</RestartPrompt_ProgressBarStatus>
+		<RestartPrompt_AutoRestartMessage>The device will automatically reboot at the end of the countdown.</RestartPrompt_AutoRestartMessage>
+		<RestartPrompt_SaveMessage>Please, save all your work and restart your computer within the allotted time.</RestartPrompt_SaveMessage>
+		<RestartPrompt_ButtonRestartLater>Minimize</RestartPrompt_ButtonRestartLater>
+		<RestartPrompt_ButtonRestartNow>Restart Now</RestartPrompt_ButtonRestartNow>
+	</UI_Messages_DA>
+
+	<!-- UI Toast Notification Messages - French -->
+	<UI_Messages_FR>
+		<AttributionTextAutoContinue>This message will auto-dismiss in {0}.</AttributionTextAutoContinue>
+		<RemainingTimeHours>hours</RemainingTimeHours>
+		<RemainingTimeHour>hour</RemainingTimeHour>
+		<RemainingTimeMinutes>minutes</RemainingTimeMinutes>
+		<RemainingTimeMinute>minute</RemainingTimeMinute>
+		<DeploymentTypeInstall>Install</DeploymentTypeInstall>
+		<DeploymentTypeUninstall>Uninstall</DeploymentTypeUninstall>
+		<DeploymentTypeRepair>Repair</DeploymentTypeRepair>
+
+		<WelcomePrompt_WelcomeMessage>The application {0} process is about to start.</WelcomePrompt_WelcomeMessage>
+		<WelcomePrompt_CloseMessageSingular>The following running application must be closed before and during the process:</WelcomePrompt_CloseMessageSingular>
+		<WelcomePrompt_CloseMessagePlural>The following {0} running applications must be closed before and during the process:</WelcomePrompt_CloseMessagePlural>
+		<WelcomePrompt_AttributionTextAutoDeferral>The {0} will auto-defer in {1}.</WelcomePrompt_AttributionTextAutoDeferral>
+		<WelcomePrompt_ProgressBarTitleSingular>Please, close the following application:</WelcomePrompt_ProgressBarTitleSingular>
+		<WelcomePrompt_ProgressBarTitlePlural>Please, close the following applications:</WelcomePrompt_ProgressBarTitlePlural>
+		<WelcomePrompt_ProgressBarStatus>Automatic closing in:</WelcomePrompt_ProgressBarStatus>
+		<WelcomePrompt_MoreApplicationsMessage>{0} running applications:</WelcomePrompt_MoreApplicationsMessage>
+		<WelcomePrompt_RemainingDeferrals>Remaining deferrals: {0}</WelcomePrompt_RemainingDeferrals>
+		<WelcomePrompt_DeferMessage>You can defer the {0} to another time...</WelcomePrompt_DeferMessage>
+		<WelcomePrompt_DeferMessageDeadline>Deferral deadline: {0}</WelcomePrompt_DeferMessageDeadline>
+		<WelcomePrompt_DeferMessageDeadlineWarning>Once this period has expired, you will not be able to postpone the {0}.</WelcomePrompt_DeferMessageDeadlineWarning>
+		<WelcomePrompt_ButtonCloseSingular>Close application</WelcomePrompt_ButtonCloseSingular>
+		<WelcomePrompt_ButtonClosePlural>Close applications</WelcomePrompt_ButtonClosePlural>
+		<WelcomePrompt_ButtonContinue>Continue</WelcomePrompt_ButtonContinue>
+		<WelcomePrompt_ButtonDefer>Another time</WelcomePrompt_ButtonDefer>
+
+		<BlockExecution_CloseMessage>The following application must stay closed during the {0} process:</BlockExecution_CloseMessage>
+		<BlockExecution_BlockMessageSingular>The execution of this application has been temporarily blocked, when the {0} process ends it can be used again normally.</BlockExecution_BlockMessageSingular>
+		<BlockExecution_BlockMessagePlural>The execution of these {0} applications has been temporarily blocked, when the {1} process ends, they can be used again normally:</BlockExecution_BlockMessagePlural>
+		<BlockExecution_MoreApplicationsMessage>+ {0} more applications...</BlockExecution_MoreApplicationsMessage>
+
+		<RestartPrompt_RestartMessage>For the process to complete, the computer needs to be restarted.</RestartPrompt_RestartMessage>
+		<RestartPrompt_AttributionText>It will automatically restart at {0}.</RestartPrompt_AttributionText>
+		<RestartPrompt_ProgressBarTitle>The process requires a restart...</RestartPrompt_ProgressBarTitle>
+		<RestartPrompt_ProgressBarStatus>Remaining Time:</RestartPrompt_ProgressBarStatus>
+		<RestartPrompt_AutoRestartMessage>The device will automatically reboot at the end of the countdown.</RestartPrompt_AutoRestartMessage>
+		<RestartPrompt_SaveMessage>Please, save all your work and restart your computer within the allotted time.</RestartPrompt_SaveMessage>
+		<RestartPrompt_ButtonRestartLater>Minimize</RestartPrompt_ButtonRestartLater>
+		<RestartPrompt_ButtonRestartNow>Restart Now</RestartPrompt_ButtonRestartNow>
+	</UI_Messages_FR>
+
+	<!-- UI Toast Notification Messages - German -->
+	<UI_Messages_DE>
+		<AttributionTextAutoContinue>This message will auto-dismiss in {0}.</AttributionTextAutoContinue>
+		<RemainingTimeHours>hours</RemainingTimeHours>
+		<RemainingTimeHour>hour</RemainingTimeHour>
+		<RemainingTimeMinutes>minutes</RemainingTimeMinutes>
+		<RemainingTimeMinute>minute</RemainingTimeMinute>
+		<DeploymentTypeInstall>Install</DeploymentTypeInstall>
+		<DeploymentTypeUninstall>Uninstall</DeploymentTypeUninstall>
+		<DeploymentTypeRepair>Repair</DeploymentTypeRepair>
+
+		<WelcomePrompt_WelcomeMessage>The application {0} process is about to start.</WelcomePrompt_WelcomeMessage>
+		<WelcomePrompt_CloseMessageSingular>The following running application must be closed before and during the process:</WelcomePrompt_CloseMessageSingular>
+		<WelcomePrompt_CloseMessagePlural>The following {0} running applications must be closed before and during the process:</WelcomePrompt_CloseMessagePlural>
+		<WelcomePrompt_AttributionTextAutoDeferral>The {0} will auto-defer in {1}.</WelcomePrompt_AttributionTextAutoDeferral>
+		<WelcomePrompt_ProgressBarTitleSingular>Please, close the following application:</WelcomePrompt_ProgressBarTitleSingular>
+		<WelcomePrompt_ProgressBarTitlePlural>Please, close the following applications:</WelcomePrompt_ProgressBarTitlePlural>
+		<WelcomePrompt_ProgressBarStatus>Automatic closing in:</WelcomePrompt_ProgressBarStatus>
+		<WelcomePrompt_MoreApplicationsMessage>{0} running applications:</WelcomePrompt_MoreApplicationsMessage>
+		<WelcomePrompt_RemainingDeferrals>Remaining deferrals: {0}</WelcomePrompt_RemainingDeferrals>
+		<WelcomePrompt_DeferMessage>You can defer the {0} to another time...</WelcomePrompt_DeferMessage>
+		<WelcomePrompt_DeferMessageDeadline>Deferral deadline: {0}</WelcomePrompt_DeferMessageDeadline>
+		<WelcomePrompt_DeferMessageDeadlineWarning>Once this period has expired, you will not be able to postpone the {0}.</WelcomePrompt_DeferMessageDeadlineWarning>
+		<WelcomePrompt_ButtonCloseSingular>Close application</WelcomePrompt_ButtonCloseSingular>
+		<WelcomePrompt_ButtonClosePlural>Close applications</WelcomePrompt_ButtonClosePlural>
+		<WelcomePrompt_ButtonContinue>Continue</WelcomePrompt_ButtonContinue>
+		<WelcomePrompt_ButtonDefer>Another time</WelcomePrompt_ButtonDefer>
+
+		<BlockExecution_CloseMessage>The following application must stay closed during the {0} process:</BlockExecution_CloseMessage>
+		<BlockExecution_BlockMessageSingular>The execution of this application has been temporarily blocked, when the {0} process ends it can be used again normally.</BlockExecution_BlockMessageSingular>
+		<BlockExecution_BlockMessagePlural>The execution of these {0} applications has been temporarily blocked, when the {1} process ends, they can be used again normally:</BlockExecution_BlockMessagePlural>
+		<BlockExecution_MoreApplicationsMessage>+ {0} more applications...</BlockExecution_MoreApplicationsMessage>
+
+		<RestartPrompt_RestartMessage>For the process to complete, the computer needs to be restarted.</RestartPrompt_RestartMessage>
+		<RestartPrompt_AttributionText>It will automatically restart at {0}.</RestartPrompt_AttributionText>
+		<RestartPrompt_ProgressBarTitle>The process requires a restart...</RestartPrompt_ProgressBarTitle>
+		<RestartPrompt_ProgressBarStatus>Remaining Time:</RestartPrompt_ProgressBarStatus>
+		<RestartPrompt_AutoRestartMessage>The device will automatically reboot at the end of the countdown.</RestartPrompt_AutoRestartMessage>
+		<RestartPrompt_SaveMessage>Please, save all your work and restart your computer within the allotted time.</RestartPrompt_SaveMessage>
+		<RestartPrompt_ButtonRestartLater>Minimize</RestartPrompt_ButtonRestartLater>
+		<RestartPrompt_ButtonRestartNow>Restart Now</RestartPrompt_ButtonRestartNow>
+	</UI_Messages_DE>
+
+	<!-- UI Toast Notification Messages - Italian -->
+	<UI_Messages_IT>
+		<AttributionTextAutoContinue>This message will auto-dismiss in {0}.</AttributionTextAutoContinue>
+		<RemainingTimeHours>hours</RemainingTimeHours>
+		<RemainingTimeHour>hour</RemainingTimeHour>
+		<RemainingTimeMinutes>minutes</RemainingTimeMinutes>
+		<RemainingTimeMinute>minute</RemainingTimeMinute>
+		<DeploymentTypeInstall>Install</DeploymentTypeInstall>
+		<DeploymentTypeUninstall>Uninstall</DeploymentTypeUninstall>
+		<DeploymentTypeRepair>Repair</DeploymentTypeRepair>
+
+		<WelcomePrompt_WelcomeMessage>The application {0} process is about to start.</WelcomePrompt_WelcomeMessage>
+		<WelcomePrompt_CloseMessageSingular>The following running application must be closed before and during the process:</WelcomePrompt_CloseMessageSingular>
+		<WelcomePrompt_CloseMessagePlural>The following {0} running applications must be closed before and during the process:</WelcomePrompt_CloseMessagePlural>
+		<WelcomePrompt_AttributionTextAutoDeferral>The {0} will auto-defer in {1}.</WelcomePrompt_AttributionTextAutoDeferral>
+		<WelcomePrompt_ProgressBarTitleSingular>Please, close the following application:</WelcomePrompt_ProgressBarTitleSingular>
+		<WelcomePrompt_ProgressBarTitlePlural>Please, close the following applications:</WelcomePrompt_ProgressBarTitlePlural>
+		<WelcomePrompt_ProgressBarStatus>Automatic closing in:</WelcomePrompt_ProgressBarStatus>
+		<WelcomePrompt_MoreApplicationsMessage>{0} running applications:</WelcomePrompt_MoreApplicationsMessage>
+		<WelcomePrompt_RemainingDeferrals>Remaining deferrals: {0}</WelcomePrompt_RemainingDeferrals>
+		<WelcomePrompt_DeferMessage>You can defer the {0} to another time...</WelcomePrompt_DeferMessage>
+		<WelcomePrompt_DeferMessageDeadline>Deferral deadline: {0}</WelcomePrompt_DeferMessageDeadline>
+		<WelcomePrompt_DeferMessageDeadlineWarning>Once this period has expired, you will not be able to postpone the {0}.</WelcomePrompt_DeferMessageDeadlineWarning>
+		<WelcomePrompt_ButtonCloseSingular>Close application</WelcomePrompt_ButtonCloseSingular>
+		<WelcomePrompt_ButtonClosePlural>Close applications</WelcomePrompt_ButtonClosePlural>
+		<WelcomePrompt_ButtonContinue>Continue</WelcomePrompt_ButtonContinue>
+		<WelcomePrompt_ButtonDefer>Another time</WelcomePrompt_ButtonDefer>
+
+		<BlockExecution_CloseMessage>The following application must stay closed during the {0} process:</BlockExecution_CloseMessage>
+		<BlockExecution_BlockMessageSingular>The execution of this application has been temporarily blocked, when the {0} process ends it can be used again normally.</BlockExecution_BlockMessageSingular>
+		<BlockExecution_BlockMessagePlural>The execution of these {0} applications has been temporarily blocked, when the {1} process ends, they can be used again normally:</BlockExecution_BlockMessagePlural>
+		<BlockExecution_MoreApplicationsMessage>+ {0} more applications...</BlockExecution_MoreApplicationsMessage>
+
+		<RestartPrompt_RestartMessage>For the process to complete, the computer needs to be restarted.</RestartPrompt_RestartMessage>
+		<RestartPrompt_AttributionText>It will automatically restart at {0}.</RestartPrompt_AttributionText>
+		<RestartPrompt_ProgressBarTitle>The process requires a restart...</RestartPrompt_ProgressBarTitle>
+		<RestartPrompt_ProgressBarStatus>Remaining Time:</RestartPrompt_ProgressBarStatus>
+		<RestartPrompt_AutoRestartMessage>The device will automatically reboot at the end of the countdown.</RestartPrompt_AutoRestartMessage>
+		<RestartPrompt_SaveMessage>Please, save all your work and restart your computer within the allotted time.</RestartPrompt_SaveMessage>
+		<RestartPrompt_ButtonRestartLater>Minimize</RestartPrompt_ButtonRestartLater>
+		<RestartPrompt_ButtonRestartNow>Restart Now</RestartPrompt_ButtonRestartNow>
+	</UI_Messages_IT>
+
+	<!-- UI Toast Notification Messages - Japanese -->
+	<UI_Messages_JA>
+		<AttributionTextAutoContinue>This message will auto-dismiss in {0}.</AttributionTextAutoContinue>
+		<RemainingTimeHours>hours</RemainingTimeHours>
+		<RemainingTimeHour>hour</RemainingTimeHour>
+		<RemainingTimeMinutes>minutes</RemainingTimeMinutes>
+		<RemainingTimeMinute>minute</RemainingTimeMinute>
+		<DeploymentTypeInstall>Install</DeploymentTypeInstall>
+		<DeploymentTypeUninstall>Uninstall</DeploymentTypeUninstall>
+		<DeploymentTypeRepair>Repair</DeploymentTypeRepair>
+
+		<WelcomePrompt_WelcomeMessage>The application {0} process is about to start.</WelcomePrompt_WelcomeMessage>
+		<WelcomePrompt_CloseMessageSingular>The following running application must be closed before and during the process:</WelcomePrompt_CloseMessageSingular>
+		<WelcomePrompt_CloseMessagePlural>The following {0} running applications must be closed before and during the process:</WelcomePrompt_CloseMessagePlural>
+		<WelcomePrompt_AttributionTextAutoDeferral>The {0} will auto-defer in {1}.</WelcomePrompt_AttributionTextAutoDeferral>
+		<WelcomePrompt_ProgressBarTitleSingular>Please, close the following application:</WelcomePrompt_ProgressBarTitleSingular>
+		<WelcomePrompt_ProgressBarTitlePlural>Please, close the following applications:</WelcomePrompt_ProgressBarTitlePlural>
+		<WelcomePrompt_ProgressBarStatus>Automatic closing in:</WelcomePrompt_ProgressBarStatus>
+		<WelcomePrompt_MoreApplicationsMessage>{0} running applications:</WelcomePrompt_MoreApplicationsMessage>
+		<WelcomePrompt_RemainingDeferrals>Remaining deferrals: {0}</WelcomePrompt_RemainingDeferrals>
+		<WelcomePrompt_DeferMessage>You can defer the {0} to another time...</WelcomePrompt_DeferMessage>
+		<WelcomePrompt_DeferMessageDeadline>Deferral deadline: {0}</WelcomePrompt_DeferMessageDeadline>
+		<WelcomePrompt_DeferMessageDeadlineWarning>Once this period has expired, you will not be able to postpone the {0}.</WelcomePrompt_DeferMessageDeadlineWarning>
+		<WelcomePrompt_ButtonCloseSingular>Close application</WelcomePrompt_ButtonCloseSingular>
+		<WelcomePrompt_ButtonClosePlural>Close applications</WelcomePrompt_ButtonClosePlural>
+		<WelcomePrompt_ButtonContinue>Continue</WelcomePrompt_ButtonContinue>
+		<WelcomePrompt_ButtonDefer>Another time</WelcomePrompt_ButtonDefer>
+
+		<BlockExecution_CloseMessage>The following application must stay closed during the {0} process:</BlockExecution_CloseMessage>
+		<BlockExecution_BlockMessageSingular>The execution of this application has been temporarily blocked, when the {0} process ends it can be used again normally.</BlockExecution_BlockMessageSingular>
+		<BlockExecution_BlockMessagePlural>The execution of these {0} applications has been temporarily blocked, when the {1} process ends, they can be used again normally:</BlockExecution_BlockMessagePlural>
+		<BlockExecution_MoreApplicationsMessage>+ {0} more applications...</BlockExecution_MoreApplicationsMessage>
+
+		<RestartPrompt_RestartMessage>For the process to complete, the computer needs to be restarted.</RestartPrompt_RestartMessage>
+		<RestartPrompt_AttributionText>It will automatically restart at {0}.</RestartPrompt_AttributionText>
+		<RestartPrompt_ProgressBarTitle>The process requires a restart...</RestartPrompt_ProgressBarTitle>
+		<RestartPrompt_ProgressBarStatus>Remaining Time:</RestartPrompt_ProgressBarStatus>
+		<RestartPrompt_AutoRestartMessage>The device will automatically reboot at the end of the countdown.</RestartPrompt_AutoRestartMessage>
+		<RestartPrompt_SaveMessage>Please, save all your work and restart your computer within the allotted time.</RestartPrompt_SaveMessage>
+		<RestartPrompt_ButtonRestartLater>Minimize</RestartPrompt_ButtonRestartLater>
+		<RestartPrompt_ButtonRestartNow>Restart Now</RestartPrompt_ButtonRestartNow>
+	</UI_Messages_JA>
+
+	<!-- UI Toast Notification Messages - Norwegian (Bokmål) -->
+	<UI_Messages_NB>
+		<AttributionTextAutoContinue>This message will auto-dismiss in {0}.</AttributionTextAutoContinue>
+		<RemainingTimeHours>hours</RemainingTimeHours>
+		<RemainingTimeHour>hour</RemainingTimeHour>
+		<RemainingTimeMinutes>minutes</RemainingTimeMinutes>
+		<RemainingTimeMinute>minute</RemainingTimeMinute>
+		<DeploymentTypeInstall>Install</DeploymentTypeInstall>
+		<DeploymentTypeUninstall>Uninstall</DeploymentTypeUninstall>
+		<DeploymentTypeRepair>Repair</DeploymentTypeRepair>
+
+		<WelcomePrompt_WelcomeMessage>The application {0} process is about to start.</WelcomePrompt_WelcomeMessage>
+		<WelcomePrompt_CloseMessageSingular>The following running application must be closed before and during the process:</WelcomePrompt_CloseMessageSingular>
+		<WelcomePrompt_CloseMessagePlural>The following {0} running applications must be closed before and during the process:</WelcomePrompt_CloseMessagePlural>
+		<WelcomePrompt_AttributionTextAutoDeferral>The {0} will auto-defer in {1}.</WelcomePrompt_AttributionTextAutoDeferral>
+		<WelcomePrompt_ProgressBarTitleSingular>Please, close the following application:</WelcomePrompt_ProgressBarTitleSingular>
+		<WelcomePrompt_ProgressBarTitlePlural>Please, close the following applications:</WelcomePrompt_ProgressBarTitlePlural>
+		<WelcomePrompt_ProgressBarStatus>Automatic closing in:</WelcomePrompt_ProgressBarStatus>
+		<WelcomePrompt_MoreApplicationsMessage>{0} running applications:</WelcomePrompt_MoreApplicationsMessage>
+		<WelcomePrompt_RemainingDeferrals>Remaining deferrals: {0}</WelcomePrompt_RemainingDeferrals>
+		<WelcomePrompt_DeferMessage>You can defer the {0} to another time...</WelcomePrompt_DeferMessage>
+		<WelcomePrompt_DeferMessageDeadline>Deferral deadline: {0}</WelcomePrompt_DeferMessageDeadline>
+		<WelcomePrompt_DeferMessageDeadlineWarning>Once this period has expired, you will not be able to postpone the {0}.</WelcomePrompt_DeferMessageDeadlineWarning>
+		<WelcomePrompt_ButtonCloseSingular>Close application</WelcomePrompt_ButtonCloseSingular>
+		<WelcomePrompt_ButtonClosePlural>Close applications</WelcomePrompt_ButtonClosePlural>
+		<WelcomePrompt_ButtonContinue>Continue</WelcomePrompt_ButtonContinue>
+		<WelcomePrompt_ButtonDefer>Another time</WelcomePrompt_ButtonDefer>
+
+		<BlockExecution_CloseMessage>The following application must stay closed during the {0} process:</BlockExecution_CloseMessage>
+		<BlockExecution_BlockMessageSingular>The execution of this application has been temporarily blocked, when the {0} process ends it can be used again normally.</BlockExecution_BlockMessageSingular>
+		<BlockExecution_BlockMessagePlural>The execution of these {0} applications has been temporarily blocked, when the {1} process ends, they can be used again normally:</BlockExecution_BlockMessagePlural>
+		<BlockExecution_MoreApplicationsMessage>+ {0} more applications...</BlockExecution_MoreApplicationsMessage>
+
+		<RestartPrompt_RestartMessage>For the process to complete, the computer needs to be restarted.</RestartPrompt_RestartMessage>
+		<RestartPrompt_AttributionText>It will automatically restart at {0}.</RestartPrompt_AttributionText>
+		<RestartPrompt_ProgressBarTitle>The process requires a restart...</RestartPrompt_ProgressBarTitle>
+		<RestartPrompt_ProgressBarStatus>Remaining Time:</RestartPrompt_ProgressBarStatus>
+		<RestartPrompt_AutoRestartMessage>The device will automatically reboot at the end of the countdown.</RestartPrompt_AutoRestartMessage>
+		<RestartPrompt_SaveMessage>Please, save all your work and restart your computer within the allotted time.</RestartPrompt_SaveMessage>
+		<RestartPrompt_ButtonRestartLater>Minimize</RestartPrompt_ButtonRestartLater>
+		<RestartPrompt_ButtonRestartNow>Restart Now</RestartPrompt_ButtonRestartNow>
+	</UI_Messages_NB>
+
+	<!-- UI Toast Notification Messages - Dutch -->
+	<UI_Messages_NL>
+		<AttributionTextAutoContinue>This message will auto-dismiss in {0}.</AttributionTextAutoContinue>
+		<RemainingTimeHours>hours</RemainingTimeHours>
+		<RemainingTimeHour>hour</RemainingTimeHour>
+		<RemainingTimeMinutes>minutes</RemainingTimeMinutes>
+		<RemainingTimeMinute>minute</RemainingTimeMinute>
+		<DeploymentTypeInstall>Install</DeploymentTypeInstall>
+		<DeploymentTypeUninstall>Uninstall</DeploymentTypeUninstall>
+		<DeploymentTypeRepair>Repair</DeploymentTypeRepair>
+
+		<WelcomePrompt_WelcomeMessage>The application {0} process is about to start.</WelcomePrompt_WelcomeMessage>
+		<WelcomePrompt_CloseMessageSingular>The following running application must be closed before and during the process:</WelcomePrompt_CloseMessageSingular>
+		<WelcomePrompt_CloseMessagePlural>The following {0} running applications must be closed before and during the process:</WelcomePrompt_CloseMessagePlural>
+		<WelcomePrompt_AttributionTextAutoDeferral>The {0} will auto-defer in {1}.</WelcomePrompt_AttributionTextAutoDeferral>
+		<WelcomePrompt_ProgressBarTitleSingular>Please, close the following application:</WelcomePrompt_ProgressBarTitleSingular>
+		<WelcomePrompt_ProgressBarTitlePlural>Please, close the following applications:</WelcomePrompt_ProgressBarTitlePlural>
+		<WelcomePrompt_ProgressBarStatus>Automatic closing in:</WelcomePrompt_ProgressBarStatus>
+		<WelcomePrompt_MoreApplicationsMessage>{0} running applications:</WelcomePrompt_MoreApplicationsMessage>
+		<WelcomePrompt_RemainingDeferrals>Remaining deferrals: {0}</WelcomePrompt_RemainingDeferrals>
+		<WelcomePrompt_DeferMessage>You can defer the {0} to another time...</WelcomePrompt_DeferMessage>
+		<WelcomePrompt_DeferMessageDeadline>Deferral deadline: {0}</WelcomePrompt_DeferMessageDeadline>
+		<WelcomePrompt_DeferMessageDeadlineWarning>Once this period has expired, you will not be able to postpone the {0}.</WelcomePrompt_DeferMessageDeadlineWarning>
+		<WelcomePrompt_ButtonCloseSingular>Close application</WelcomePrompt_ButtonCloseSingular>
+		<WelcomePrompt_ButtonClosePlural>Close applications</WelcomePrompt_ButtonClosePlural>
+		<WelcomePrompt_ButtonContinue>Continue</WelcomePrompt_ButtonContinue>
+		<WelcomePrompt_ButtonDefer>Another time</WelcomePrompt_ButtonDefer>
+
+		<BlockExecution_CloseMessage>The following application must stay closed during the {0} process:</BlockExecution_CloseMessage>
+		<BlockExecution_BlockMessageSingular>The execution of this application has been temporarily blocked, when the {0} process ends it can be used again normally.</BlockExecution_BlockMessageSingular>
+		<BlockExecution_BlockMessagePlural>The execution of these {0} applications has been temporarily blocked, when the {1} process ends, they can be used again normally:</BlockExecution_BlockMessagePlural>
+		<BlockExecution_MoreApplicationsMessage>+ {0} more applications...</BlockExecution_MoreApplicationsMessage>
+
+		<RestartPrompt_RestartMessage>For the process to complete, the computer needs to be restarted.</RestartPrompt_RestartMessage>
+		<RestartPrompt_AttributionText>It will automatically restart at {0}.</RestartPrompt_AttributionText>
+		<RestartPrompt_ProgressBarTitle>The process requires a restart...</RestartPrompt_ProgressBarTitle>
+		<RestartPrompt_ProgressBarStatus>Remaining Time:</RestartPrompt_ProgressBarStatus>
+		<RestartPrompt_AutoRestartMessage>The device will automatically reboot at the end of the countdown.</RestartPrompt_AutoRestartMessage>
+		<RestartPrompt_SaveMessage>Please, save all your work and restart your computer within the allotted time.</RestartPrompt_SaveMessage>
+		<RestartPrompt_ButtonRestartLater>Minimize</RestartPrompt_ButtonRestartLater>
+		<RestartPrompt_ButtonRestartNow>Restart Now</RestartPrompt_ButtonRestartNow>
+	</UI_Messages_NL>
+
+	<!-- UI Toast Notification Messages - Polish -->
+	<UI_Messages_PL>
+		<AttributionTextAutoContinue>This message will auto-dismiss in {0}.</AttributionTextAutoContinue>
+		<RemainingTimeHours>hours</RemainingTimeHours>
+		<RemainingTimeHour>hour</RemainingTimeHour>
+		<RemainingTimeMinutes>minutes</RemainingTimeMinutes>
+		<RemainingTimeMinute>minute</RemainingTimeMinute>
+		<DeploymentTypeInstall>Install</DeploymentTypeInstall>
+		<DeploymentTypeUninstall>Uninstall</DeploymentTypeUninstall>
+		<DeploymentTypeRepair>Repair</DeploymentTypeRepair>
+
+		<WelcomePrompt_WelcomeMessage>The application {0} process is about to start.</WelcomePrompt_WelcomeMessage>
+		<WelcomePrompt_CloseMessageSingular>The following running application must be closed before and during the process:</WelcomePrompt_CloseMessageSingular>
+		<WelcomePrompt_CloseMessagePlural>The following {0} running applications must be closed before and during the process:</WelcomePrompt_CloseMessagePlural>
+		<WelcomePrompt_AttributionTextAutoDeferral>The {0} will auto-defer in {1}.</WelcomePrompt_AttributionTextAutoDeferral>
+		<WelcomePrompt_ProgressBarTitleSingular>Please, close the following application:</WelcomePrompt_ProgressBarTitleSingular>
+		<WelcomePrompt_ProgressBarTitlePlural>Please, close the following applications:</WelcomePrompt_ProgressBarTitlePlural>
+		<WelcomePrompt_ProgressBarStatus>Automatic closing in:</WelcomePrompt_ProgressBarStatus>
+		<WelcomePrompt_MoreApplicationsMessage>{0} running applications:</WelcomePrompt_MoreApplicationsMessage>
+		<WelcomePrompt_RemainingDeferrals>Remaining deferrals: {0}</WelcomePrompt_RemainingDeferrals>
+		<WelcomePrompt_DeferMessage>You can defer the {0} to another time...</WelcomePrompt_DeferMessage>
+		<WelcomePrompt_DeferMessageDeadline>Deferral deadline: {0}</WelcomePrompt_DeferMessageDeadline>
+		<WelcomePrompt_DeferMessageDeadlineWarning>Once this period has expired, you will not be able to postpone the {0}.</WelcomePrompt_DeferMessageDeadlineWarning>
+		<WelcomePrompt_ButtonCloseSingular>Close application</WelcomePrompt_ButtonCloseSingular>
+		<WelcomePrompt_ButtonClosePlural>Close applications</WelcomePrompt_ButtonClosePlural>
+		<WelcomePrompt_ButtonContinue>Continue</WelcomePrompt_ButtonContinue>
+		<WelcomePrompt_ButtonDefer>Another time</WelcomePrompt_ButtonDefer>
+
+		<BlockExecution_CloseMessage>The following application must stay closed during the {0} process:</BlockExecution_CloseMessage>
+		<BlockExecution_BlockMessageSingular>The execution of this application has been temporarily blocked, when the {0} process ends it can be used again normally.</BlockExecution_BlockMessageSingular>
+		<BlockExecution_BlockMessagePlural>The execution of these {0} applications has been temporarily blocked, when the {1} process ends, they can be used again normally:</BlockExecution_BlockMessagePlural>
+		<BlockExecution_MoreApplicationsMessage>+ {0} more applications...</BlockExecution_MoreApplicationsMessage>
+
+		<RestartPrompt_RestartMessage>For the process to complete, the computer needs to be restarted.</RestartPrompt_RestartMessage>
+		<RestartPrompt_AttributionText>It will automatically restart at {0}.</RestartPrompt_AttributionText>
+		<RestartPrompt_ProgressBarTitle>The process requires a restart...</RestartPrompt_ProgressBarTitle>
+		<RestartPrompt_ProgressBarStatus>Remaining Time:</RestartPrompt_ProgressBarStatus>
+		<RestartPrompt_AutoRestartMessage>The device will automatically reboot at the end of the countdown.</RestartPrompt_AutoRestartMessage>
+		<RestartPrompt_SaveMessage>Please, save all your work and restart your computer within the allotted time.</RestartPrompt_SaveMessage>
+		<RestartPrompt_ButtonRestartLater>Minimize</RestartPrompt_ButtonRestartLater>
+		<RestartPrompt_ButtonRestartNow>Restart Now</RestartPrompt_ButtonRestartNow>
+	</UI_Messages_PL>
+
+	<!-- UI Toast Notification Messages - Portuguese (Portugal) -->
+	<UI_Messages_PT>
+		<AttributionTextAutoContinue>This message will auto-dismiss in {0}.</AttributionTextAutoContinue>
+		<RemainingTimeHours>hours</RemainingTimeHours>
+		<RemainingTimeHour>hour</RemainingTimeHour>
+		<RemainingTimeMinutes>minutes</RemainingTimeMinutes>
+		<RemainingTimeMinute>minute</RemainingTimeMinute>
+		<DeploymentTypeInstall>Install</DeploymentTypeInstall>
+		<DeploymentTypeUninstall>Uninstall</DeploymentTypeUninstall>
+		<DeploymentTypeRepair>Repair</DeploymentTypeRepair>
+
+		<WelcomePrompt_WelcomeMessage>The application {0} process is about to start.</WelcomePrompt_WelcomeMessage>
+		<WelcomePrompt_CloseMessageSingular>The following running application must be closed before and during the process:</WelcomePrompt_CloseMessageSingular>
+		<WelcomePrompt_CloseMessagePlural>The following {0} running applications must be closed before and during the process:</WelcomePrompt_CloseMessagePlural>
+		<WelcomePrompt_AttributionTextAutoDeferral>The {0} will auto-defer in {1}.</WelcomePrompt_AttributionTextAutoDeferral>
+		<WelcomePrompt_ProgressBarTitleSingular>Please, close the following application:</WelcomePrompt_ProgressBarTitleSingular>
+		<WelcomePrompt_ProgressBarTitlePlural>Please, close the following applications:</WelcomePrompt_ProgressBarTitlePlural>
+		<WelcomePrompt_ProgressBarStatus>Automatic closing in:</WelcomePrompt_ProgressBarStatus>
+		<WelcomePrompt_MoreApplicationsMessage>{0} running applications:</WelcomePrompt_MoreApplicationsMessage>
+		<WelcomePrompt_RemainingDeferrals>Remaining deferrals: {0}</WelcomePrompt_RemainingDeferrals>
+		<WelcomePrompt_DeferMessage>You can defer the {0} to another time...</WelcomePrompt_DeferMessage>
+		<WelcomePrompt_DeferMessageDeadline>Deferral deadline: {0}</WelcomePrompt_DeferMessageDeadline>
+		<WelcomePrompt_DeferMessageDeadlineWarning>Once this period has expired, you will not be able to postpone the {0}.</WelcomePrompt_DeferMessageDeadlineWarning>
+		<WelcomePrompt_ButtonCloseSingular>Close application</WelcomePrompt_ButtonCloseSingular>
+		<WelcomePrompt_ButtonClosePlural>Close applications</WelcomePrompt_ButtonClosePlural>
+		<WelcomePrompt_ButtonContinue>Continue</WelcomePrompt_ButtonContinue>
+		<WelcomePrompt_ButtonDefer>Another time</WelcomePrompt_ButtonDefer>
+
+		<BlockExecution_CloseMessage>The following application must stay closed during the {0} process:</BlockExecution_CloseMessage>
+		<BlockExecution_BlockMessageSingular>The execution of this application has been temporarily blocked, when the {0} process ends it can be used again normally.</BlockExecution_BlockMessageSingular>
+		<BlockExecution_BlockMessagePlural>The execution of these {0} applications has been temporarily blocked, when the {1} process ends, they can be used again normally:</BlockExecution_BlockMessagePlural>
+		<BlockExecution_MoreApplicationsMessage>+ {0} more applications...</BlockExecution_MoreApplicationsMessage>
+
+		<RestartPrompt_RestartMessage>For the process to complete, the computer needs to be restarted.</RestartPrompt_RestartMessage>
+		<RestartPrompt_AttributionText>It will automatically restart at {0}.</RestartPrompt_AttributionText>
+		<RestartPrompt_ProgressBarTitle>The process requires a restart...</RestartPrompt_ProgressBarTitle>
+		<RestartPrompt_ProgressBarStatus>Remaining Time:</RestartPrompt_ProgressBarStatus>
+		<RestartPrompt_AutoRestartMessage>The device will automatically reboot at the end of the countdown.</RestartPrompt_AutoRestartMessage>
+		<RestartPrompt_SaveMessage>Please, save all your work and restart your computer within the allotted time.</RestartPrompt_SaveMessage>
+		<RestartPrompt_ButtonRestartLater>Minimize</RestartPrompt_ButtonRestartLater>
+		<RestartPrompt_ButtonRestartNow>Restart Now</RestartPrompt_ButtonRestartNow>
+	</UI_Messages_PT>
+
+	<!-- UI Toast Notification Messages - Portuguese (Brazil) -->
+	<UI_Messages_PT-BR>
+		<AttributionTextAutoContinue>This message will auto-dismiss in {0}.</AttributionTextAutoContinue>
+		<RemainingTimeHours>hours</RemainingTimeHours>
+		<RemainingTimeHour>hour</RemainingTimeHour>
+		<RemainingTimeMinutes>minutes</RemainingTimeMinutes>
+		<RemainingTimeMinute>minute</RemainingTimeMinute>
+		<DeploymentTypeInstall>Install</DeploymentTypeInstall>
+		<DeploymentTypeUninstall>Uninstall</DeploymentTypeUninstall>
+		<DeploymentTypeRepair>Repair</DeploymentTypeRepair>
+
+		<WelcomePrompt_WelcomeMessage>The application {0} process is about to start.</WelcomePrompt_WelcomeMessage>
+		<WelcomePrompt_CloseMessageSingular>The following running application must be closed before and during the process:</WelcomePrompt_CloseMessageSingular>
+		<WelcomePrompt_CloseMessagePlural>The following {0} running applications must be closed before and during the process:</WelcomePrompt_CloseMessagePlural>
+		<WelcomePrompt_AttributionTextAutoDeferral>The {0} will auto-defer in {1}.</WelcomePrompt_AttributionTextAutoDeferral>
+		<WelcomePrompt_ProgressBarTitleSingular>Please, close the following application:</WelcomePrompt_ProgressBarTitleSingular>
+		<WelcomePrompt_ProgressBarTitlePlural>Please, close the following applications:</WelcomePrompt_ProgressBarTitlePlural>
+		<WelcomePrompt_ProgressBarStatus>Automatic closing in:</WelcomePrompt_ProgressBarStatus>
+		<WelcomePrompt_MoreApplicationsMessage>{0} running applications:</WelcomePrompt_MoreApplicationsMessage>
+		<WelcomePrompt_RemainingDeferrals>Remaining deferrals: {0}</WelcomePrompt_RemainingDeferrals>
+		<WelcomePrompt_DeferMessage>You can defer the {0} to another time...</WelcomePrompt_DeferMessage>
+		<WelcomePrompt_DeferMessageDeadline>Deferral deadline: {0}</WelcomePrompt_DeferMessageDeadline>
+		<WelcomePrompt_DeferMessageDeadlineWarning>Once this period has expired, you will not be able to postpone the {0}.</WelcomePrompt_DeferMessageDeadlineWarning>
+		<WelcomePrompt_ButtonCloseSingular>Close application</WelcomePrompt_ButtonCloseSingular>
+		<WelcomePrompt_ButtonClosePlural>Close applications</WelcomePrompt_ButtonClosePlural>
+		<WelcomePrompt_ButtonContinue>Continue</WelcomePrompt_ButtonContinue>
+		<WelcomePrompt_ButtonDefer>Another time</WelcomePrompt_ButtonDefer>
+
+		<BlockExecution_CloseMessage>The following application must stay closed during the {0} process:</BlockExecution_CloseMessage>
+		<BlockExecution_BlockMessageSingular>The execution of this application has been temporarily blocked, when the {0} process ends it can be used again normally.</BlockExecution_BlockMessageSingular>
+		<BlockExecution_BlockMessagePlural>The execution of these {0} applications has been temporarily blocked, when the {1} process ends, they can be used again normally:</BlockExecution_BlockMessagePlural>
+		<BlockExecution_MoreApplicationsMessage>+ {0} more applications...</BlockExecution_MoreApplicationsMessage>
+
+		<RestartPrompt_RestartMessage>For the process to complete, the computer needs to be restarted.</RestartPrompt_RestartMessage>
+		<RestartPrompt_AttributionText>It will automatically restart at {0}.</RestartPrompt_AttributionText>
+		<RestartPrompt_ProgressBarTitle>The process requires a restart...</RestartPrompt_ProgressBarTitle>
+		<RestartPrompt_ProgressBarStatus>Remaining Time:</RestartPrompt_ProgressBarStatus>
+		<RestartPrompt_AutoRestartMessage>The device will automatically reboot at the end of the countdown.</RestartPrompt_AutoRestartMessage>
+		<RestartPrompt_SaveMessage>Please, save all your work and restart your computer within the allotted time.</RestartPrompt_SaveMessage>
+		<RestartPrompt_ButtonRestartLater>Minimize</RestartPrompt_ButtonRestartLater>
+		<RestartPrompt_ButtonRestartNow>Restart Now</RestartPrompt_ButtonRestartNow>
+	</UI_Messages_PT-BR>
+
+	<!-- UI Toast Notification Messages - Spanish -->
+	<UI_Messages_ES>
+		<AttributionTextAutoContinue>Este mensaje se autodescartará en {0}.</AttributionTextAutoContinue>
+		<RemainingTimeHours>horas</RemainingTimeHours>
+		<RemainingTimeHour>hora</RemainingTimeHour>
+		<RemainingTimeMinutes>minutos</RemainingTimeMinutes>
+		<RemainingTimeMinute>minuto</RemainingTimeMinute>
+		<DeploymentTypeInstall>Instalar</DeploymentTypeInstall>
+		<DeploymentTypeUninstall>Desinstalar</DeploymentTypeUninstall>
+		<DeploymentTypeRepair>Reparar</DeploymentTypeRepair>
+
+		<WelcomePrompt_WelcomeMessage>El proceso de {0} está a punto de iniciar.</WelcomePrompt_WelcomeMessage>
+		<WelcomePrompt_CloseMessageSingular>La siguiente aplicación en ejecución debe estar cerrada antes y durante el proceso:</WelcomePrompt_CloseMessageSingular>
+		<WelcomePrompt_CloseMessagePlural>Las siguientes {0} aplicaciones en ejecución deben estar cerradas antes y durante el proceso:</WelcomePrompt_CloseMessagePlural>
+		<WelcomePrompt_AttributionTextAutoDeferral>La {0} se autoaplazará en {1}.</WelcomePrompt_AttributionTextAutoDeferral>
+		<WelcomePrompt_ProgressBarTitleSingular>Por favor, cierre la siguiente aplicación:</WelcomePrompt_ProgressBarTitleSingular>
+		<WelcomePrompt_ProgressBarTitlePlural>Por favor, cierre las siguientes aplicaciones:</WelcomePrompt_ProgressBarTitlePlural>
+		<WelcomePrompt_ProgressBarStatus>Cerrado automático en:</WelcomePrompt_ProgressBarStatus>
+		<WelcomePrompt_MoreApplicationsMessage>{0} aplicaciones en ejecución:</WelcomePrompt_MoreApplicationsMessage>
+		<WelcomePrompt_RemainingDeferrals>Aplazamientos restantes: {0}</WelcomePrompt_RemainingDeferrals>
+		<WelcomePrompt_DeferMessage>Puede aplazar la {0} a otro momento...</WelcomePrompt_DeferMessage>
+		<WelcomePrompt_DeferMessageDeadline>Fecha límite de aplazamiento: {0}</WelcomePrompt_DeferMessageDeadline>
+		<WelcomePrompt_DeferMessageDeadlineWarning>Vencido dicho plazo no podrá posponer la {0}.</WelcomePrompt_DeferMessageDeadlineWarning>
+		<WelcomePrompt_ButtonCloseSingular>Cerrar aplicación</WelcomePrompt_ButtonCloseSingular>
+		<WelcomePrompt_ButtonClosePlural>Cerrar aplicaciones</WelcomePrompt_ButtonClosePlural>
+		<WelcomePrompt_ButtonContinue>Continuar</WelcomePrompt_ButtonContinue>
+		<WelcomePrompt_ButtonDefer>En otro momento</WelcomePrompt_ButtonDefer>
+
+		<BlockExecution_CloseMessage>La siguiente aplicación debe mantenerse cerrada durante el proceso de {0}:</BlockExecution_CloseMessage>
+		<BlockExecution_BlockMessageSingular>Se ha bloqueado temporalmente la ejecución de esta aplicación, cuando finalice el proceso de {0} se podrá volver a utilizar con normalidad.</BlockExecution_BlockMessageSingular>
+		<BlockExecution_BlockMessagePlural>Se ha bloqueado temporalmente la ejecución de estas {0} aplicaciones, cuando finalice el proceso de {1} se podrán volver a utilizar con normalidad:</BlockExecution_BlockMessagePlural>
+		<BlockExecution_MoreApplicationsMessage>+ {0} aplicaciones más...</BlockExecution_MoreApplicationsMessage>
+
+		<RestartPrompt_RestartMessage>Para que el proceso se complete, es necesario reiniciar el equipo.</RestartPrompt_RestartMessage>
+		<RestartPrompt_AttributionText>Se reiniciará automáticamente en {0}.</RestartPrompt_AttributionText>
+		<RestartPrompt_ProgressBarTitle>El proceso requiere reiniciar...</RestartPrompt_ProgressBarTitle>
+		<RestartPrompt_ProgressBarStatus>Tiempo restante:</RestartPrompt_ProgressBarStatus>
+		<RestartPrompt_AutoRestartMessage>El equipo se reiniciará automáticamente al finalizar la cuenta regresiva.</RestartPrompt_AutoRestartMessage>
+		<RestartPrompt_SaveMessage>Por favor, guarde todo su trabajo y reinicie el equipo dentro del tiempo asignado.</RestartPrompt_SaveMessage>
+		<RestartPrompt_ButtonRestartLater>Minimizar</RestartPrompt_ButtonRestartLater>
+		<RestartPrompt_ButtonRestartNow>Reiniciar ahora</RestartPrompt_ButtonRestartNow>
+	</UI_Messages_ES>
+
+	<!-- UI Toast Notification Messages - Swedish -->
+	<UI_Messages_SV>
+		<AttributionTextAutoContinue>This message will auto-dismiss in {0}.</AttributionTextAutoContinue>
+		<RemainingTimeHours>hours</RemainingTimeHours>
+		<RemainingTimeHour>hour</RemainingTimeHour>
+		<RemainingTimeMinutes>minutes</RemainingTimeMinutes>
+		<RemainingTimeMinute>minute</RemainingTimeMinute>
+		<DeploymentTypeInstall>Install</DeploymentTypeInstall>
+		<DeploymentTypeUninstall>Uninstall</DeploymentTypeUninstall>
+		<DeploymentTypeRepair>Repair</DeploymentTypeRepair>
+
+		<WelcomePrompt_WelcomeMessage>The application {0} process is about to start.</WelcomePrompt_WelcomeMessage>
+		<WelcomePrompt_CloseMessageSingular>The following running application must be closed before and during the process:</WelcomePrompt_CloseMessageSingular>
+		<WelcomePrompt_CloseMessagePlural>The following {0} running applications must be closed before and during the process:</WelcomePrompt_CloseMessagePlural>
+		<WelcomePrompt_AttributionTextAutoDeferral>The {0} will auto-defer in {1}.</WelcomePrompt_AttributionTextAutoDeferral>
+		<WelcomePrompt_ProgressBarTitleSingular>Please, close the following application:</WelcomePrompt_ProgressBarTitleSingular>
+		<WelcomePrompt_ProgressBarTitlePlural>Please, close the following applications:</WelcomePrompt_ProgressBarTitlePlural>
+		<WelcomePrompt_ProgressBarStatus>Automatic closing in:</WelcomePrompt_ProgressBarStatus>
+		<WelcomePrompt_MoreApplicationsMessage>{0} running applications:</WelcomePrompt_MoreApplicationsMessage>
+		<WelcomePrompt_RemainingDeferrals>Remaining deferrals: {0}</WelcomePrompt_RemainingDeferrals>
+		<WelcomePrompt_DeferMessage>You can defer the {0} to another time...</WelcomePrompt_DeferMessage>
+		<WelcomePrompt_DeferMessageDeadline>Deferral deadline: {0}</WelcomePrompt_DeferMessageDeadline>
+		<WelcomePrompt_DeferMessageDeadlineWarning>Once this period has expired, you will not be able to postpone the {0}.</WelcomePrompt_DeferMessageDeadlineWarning>
+		<WelcomePrompt_ButtonCloseSingular>Close application</WelcomePrompt_ButtonCloseSingular>
+		<WelcomePrompt_ButtonClosePlural>Close applications</WelcomePrompt_ButtonClosePlural>
+		<WelcomePrompt_ButtonContinue>Continue</WelcomePrompt_ButtonContinue>
+		<WelcomePrompt_ButtonDefer>Another time</WelcomePrompt_ButtonDefer>
+
+		<BlockExecution_CloseMessage>The following application must stay closed during the {0} process:</BlockExecution_CloseMessage>
+		<BlockExecution_BlockMessageSingular>The execution of this application has been temporarily blocked, when the {0} process ends it can be used again normally.</BlockExecution_BlockMessageSingular>
+		<BlockExecution_BlockMessagePlural>The execution of these {0} applications has been temporarily blocked, when the {1} process ends, they can be used again normally:</BlockExecution_BlockMessagePlural>
+		<BlockExecution_MoreApplicationsMessage>+ {0} more applications...</BlockExecution_MoreApplicationsMessage>
+
+		<RestartPrompt_RestartMessage>For the process to complete, the computer needs to be restarted.</RestartPrompt_RestartMessage>
+		<RestartPrompt_AttributionText>It will automatically restart at {0}.</RestartPrompt_AttributionText>
+		<RestartPrompt_ProgressBarTitle>The process requires a restart...</RestartPrompt_ProgressBarTitle>
+		<RestartPrompt_ProgressBarStatus>Remaining Time:</RestartPrompt_ProgressBarStatus>
+		<RestartPrompt_AutoRestartMessage>The device will automatically reboot at the end of the countdown.</RestartPrompt_AutoRestartMessage>
+		<RestartPrompt_SaveMessage>Please, save all your work and restart your computer within the allotted time.</RestartPrompt_SaveMessage>
+		<RestartPrompt_ButtonRestartLater>Minimize</RestartPrompt_ButtonRestartLater>
+		<RestartPrompt_ButtonRestartNow>Restart Now</RestartPrompt_ButtonRestartNow>
+	</UI_Messages_SV>
+
+	<!-- UI Toast Notification Messages - Arabic -->
+	<UI_Messages_AR>
+		<AttributionTextAutoContinue>This message will auto-dismiss in {0}.</AttributionTextAutoContinue>
+		<RemainingTimeHours>hours</RemainingTimeHours>
+		<RemainingTimeHour>hour</RemainingTimeHour>
+		<RemainingTimeMinutes>minutes</RemainingTimeMinutes>
+		<RemainingTimeMinute>minute</RemainingTimeMinute>
+		<DeploymentTypeInstall>Install</DeploymentTypeInstall>
+		<DeploymentTypeUninstall>Uninstall</DeploymentTypeUninstall>
+		<DeploymentTypeRepair>Repair</DeploymentTypeRepair>
+
+		<WelcomePrompt_WelcomeMessage>The application {0} process is about to start.</WelcomePrompt_WelcomeMessage>
+		<WelcomePrompt_CloseMessageSingular>The following running application must be closed before and during the process:</WelcomePrompt_CloseMessageSingular>
+		<WelcomePrompt_CloseMessagePlural>The following {0} running applications must be closed before and during the process:</WelcomePrompt_CloseMessagePlural>
+		<WelcomePrompt_AttributionTextAutoDeferral>The {0} will auto-defer in {1}.</WelcomePrompt_AttributionTextAutoDeferral>
+		<WelcomePrompt_ProgressBarTitleSingular>Please, close the following application:</WelcomePrompt_ProgressBarTitleSingular>
+		<WelcomePrompt_ProgressBarTitlePlural>Please, close the following applications:</WelcomePrompt_ProgressBarTitlePlural>
+		<WelcomePrompt_ProgressBarStatus>Automatic closing in:</WelcomePrompt_ProgressBarStatus>
+		<WelcomePrompt_MoreApplicationsMessage>{0} running applications:</WelcomePrompt_MoreApplicationsMessage>
+		<WelcomePrompt_RemainingDeferrals>Remaining deferrals: {0}</WelcomePrompt_RemainingDeferrals>
+		<WelcomePrompt_DeferMessage>You can defer the {0} to another time...</WelcomePrompt_DeferMessage>
+		<WelcomePrompt_DeferMessageDeadline>Deferral deadline: {0}</WelcomePrompt_DeferMessageDeadline>
+		<WelcomePrompt_DeferMessageDeadlineWarning>Once this period has expired, you will not be able to postpone the {0}.</WelcomePrompt_DeferMessageDeadlineWarning>
+		<WelcomePrompt_ButtonCloseSingular>Close application</WelcomePrompt_ButtonCloseSingular>
+		<WelcomePrompt_ButtonClosePlural>Close applications</WelcomePrompt_ButtonClosePlural>
+		<WelcomePrompt_ButtonContinue>Continue</WelcomePrompt_ButtonContinue>
+		<WelcomePrompt_ButtonDefer>Another time</WelcomePrompt_ButtonDefer>
+
+		<BlockExecution_CloseMessage>The following application must stay closed during the {0} process:</BlockExecution_CloseMessage>
+		<BlockExecution_BlockMessageSingular>The execution of this application has been temporarily blocked, when the {0} process ends it can be used again normally.</BlockExecution_BlockMessageSingular>
+		<BlockExecution_BlockMessagePlural>The execution of these {0} applications has been temporarily blocked, when the {1} process ends, they can be used again normally:</BlockExecution_BlockMessagePlural>
+		<BlockExecution_MoreApplicationsMessage>+ {0} more applications...</BlockExecution_MoreApplicationsMessage>
+
+		<RestartPrompt_RestartMessage>For the process to complete, the computer needs to be restarted.</RestartPrompt_RestartMessage>
+		<RestartPrompt_AttributionText>It will automatically restart at {0}.</RestartPrompt_AttributionText>
+		<RestartPrompt_ProgressBarTitle>The process requires a restart...</RestartPrompt_ProgressBarTitle>
+		<RestartPrompt_ProgressBarStatus>Remaining Time:</RestartPrompt_ProgressBarStatus>
+		<RestartPrompt_AutoRestartMessage>The device will automatically reboot at the end of the countdown.</RestartPrompt_AutoRestartMessage>
+		<RestartPrompt_SaveMessage>Please, save all your work and restart your computer within the allotted time.</RestartPrompt_SaveMessage>
+		<RestartPrompt_ButtonRestartLater>Minimize</RestartPrompt_ButtonRestartLater>
+		<RestartPrompt_ButtonRestartNow>Restart Now</RestartPrompt_ButtonRestartNow>
+	</UI_Messages_AR>
+
+	<!-- UI Toast Notification Messages - Hebrew -->
+	<UI_Messages_HE>
+		<AttributionTextAutoContinue>This message will auto-dismiss in {0}.</AttributionTextAutoContinue>
+		<RemainingTimeHours>hours</RemainingTimeHours>
+		<RemainingTimeHour>hour</RemainingTimeHour>
+		<RemainingTimeMinutes>minutes</RemainingTimeMinutes>
+		<RemainingTimeMinute>minute</RemainingTimeMinute>
+		<DeploymentTypeInstall>Install</DeploymentTypeInstall>
+		<DeploymentTypeUninstall>Uninstall</DeploymentTypeUninstall>
+		<DeploymentTypeRepair>Repair</DeploymentTypeRepair>
+
+		<WelcomePrompt_WelcomeMessage>The application {0} process is about to start.</WelcomePrompt_WelcomeMessage>
+		<WelcomePrompt_CloseMessageSingular>The following running application must be closed before and during the process:</WelcomePrompt_CloseMessageSingular>
+		<WelcomePrompt_CloseMessagePlural>The following {0} running applications must be closed before and during the process:</WelcomePrompt_CloseMessagePlural>
+		<WelcomePrompt_AttributionTextAutoDeferral>The {0} will auto-defer in {1}.</WelcomePrompt_AttributionTextAutoDeferral>
+		<WelcomePrompt_ProgressBarTitleSingular>Please, close the following application:</WelcomePrompt_ProgressBarTitleSingular>
+		<WelcomePrompt_ProgressBarTitlePlural>Please, close the following applications:</WelcomePrompt_ProgressBarTitlePlural>
+		<WelcomePrompt_ProgressBarStatus>Automatic closing in:</WelcomePrompt_ProgressBarStatus>
+		<WelcomePrompt_MoreApplicationsMessage>{0} running applications:</WelcomePrompt_MoreApplicationsMessage>
+		<WelcomePrompt_RemainingDeferrals>Remaining deferrals: {0}</WelcomePrompt_RemainingDeferrals>
+		<WelcomePrompt_DeferMessage>You can defer the {0} to another time...</WelcomePrompt_DeferMessage>
+		<WelcomePrompt_DeferMessageDeadline>Deferral deadline: {0}</WelcomePrompt_DeferMessageDeadline>
+		<WelcomePrompt_DeferMessageDeadlineWarning>Once this period has expired, you will not be able to postpone the {0}.</WelcomePrompt_DeferMessageDeadlineWarning>
+		<WelcomePrompt_ButtonCloseSingular>Close application</WelcomePrompt_ButtonCloseSingular>
+		<WelcomePrompt_ButtonClosePlural>Close applications</WelcomePrompt_ButtonClosePlural>
+		<WelcomePrompt_ButtonContinue>Continue</WelcomePrompt_ButtonContinue>
+		<WelcomePrompt_ButtonDefer>Another time</WelcomePrompt_ButtonDefer>
+
+		<BlockExecution_CloseMessage>The following application must stay closed during the {0} process:</BlockExecution_CloseMessage>
+		<BlockExecution_BlockMessageSingular>The execution of this application has been temporarily blocked, when the {0} process ends it can be used again normally.</BlockExecution_BlockMessageSingular>
+		<BlockExecution_BlockMessagePlural>The execution of these {0} applications has been temporarily blocked, when the {1} process ends, they can be used again normally:</BlockExecution_BlockMessagePlural>
+		<BlockExecution_MoreApplicationsMessage>+ {0} more applications...</BlockExecution_MoreApplicationsMessage>
+
+		<RestartPrompt_RestartMessage>For the process to complete, the computer needs to be restarted.</RestartPrompt_RestartMessage>
+		<RestartPrompt_AttributionText>It will automatically restart at {0}.</RestartPrompt_AttributionText>
+		<RestartPrompt_ProgressBarTitle>The process requires a restart...</RestartPrompt_ProgressBarTitle>
+		<RestartPrompt_ProgressBarStatus>Remaining Time:</RestartPrompt_ProgressBarStatus>
+		<RestartPrompt_AutoRestartMessage>The device will automatically reboot at the end of the countdown.</RestartPrompt_AutoRestartMessage>
+		<RestartPrompt_SaveMessage>Please, save all your work and restart your computer within the allotted time.</RestartPrompt_SaveMessage>
+		<RestartPrompt_ButtonRestartLater>Minimize</RestartPrompt_ButtonRestartLater>
+		<RestartPrompt_ButtonRestartNow>Restart Now</RestartPrompt_ButtonRestartNow>
+	</UI_Messages_HE>
+
+	<!-- UI Toast Notification Messages - Korean -->
+	<UI_Messages_KO>
+		<AttributionTextAutoContinue>This message will auto-dismiss in {0}.</AttributionTextAutoContinue>
+		<RemainingTimeHours>hours</RemainingTimeHours>
+		<RemainingTimeHour>hour</RemainingTimeHour>
+		<RemainingTimeMinutes>minutes</RemainingTimeMinutes>
+		<RemainingTimeMinute>minute</RemainingTimeMinute>
+		<DeploymentTypeInstall>Install</DeploymentTypeInstall>
+		<DeploymentTypeUninstall>Uninstall</DeploymentTypeUninstall>
+		<DeploymentTypeRepair>Repair</DeploymentTypeRepair>
+
+		<WelcomePrompt_WelcomeMessage>The application {0} process is about to start.</WelcomePrompt_WelcomeMessage>
+		<WelcomePrompt_CloseMessageSingular>The following running application must be closed before and during the process:</WelcomePrompt_CloseMessageSingular>
+		<WelcomePrompt_CloseMessagePlural>The following {0} running applications must be closed before and during the process:</WelcomePrompt_CloseMessagePlural>
+		<WelcomePrompt_AttributionTextAutoDeferral>The {0} will auto-defer in {1}.</WelcomePrompt_AttributionTextAutoDeferral>
+		<WelcomePrompt_ProgressBarTitleSingular>Please, close the following application:</WelcomePrompt_ProgressBarTitleSingular>
+		<WelcomePrompt_ProgressBarTitlePlural>Please, close the following applications:</WelcomePrompt_ProgressBarTitlePlural>
+		<WelcomePrompt_ProgressBarStatus>Automatic closing in:</WelcomePrompt_ProgressBarStatus>
+		<WelcomePrompt_MoreApplicationsMessage>{0} running applications:</WelcomePrompt_MoreApplicationsMessage>
+		<WelcomePrompt_RemainingDeferrals>Remaining deferrals: {0}</WelcomePrompt_RemainingDeferrals>
+		<WelcomePrompt_DeferMessage>You can defer the {0} to another time...</WelcomePrompt_DeferMessage>
+		<WelcomePrompt_DeferMessageDeadline>Deferral deadline: {0}</WelcomePrompt_DeferMessageDeadline>
+		<WelcomePrompt_DeferMessageDeadlineWarning>Once this period has expired, you will not be able to postpone the {0}.</WelcomePrompt_DeferMessageDeadlineWarning>
+		<WelcomePrompt_ButtonCloseSingular>Close application</WelcomePrompt_ButtonCloseSingular>
+		<WelcomePrompt_ButtonClosePlural>Close applications</WelcomePrompt_ButtonClosePlural>
+		<WelcomePrompt_ButtonContinue>Continue</WelcomePrompt_ButtonContinue>
+		<WelcomePrompt_ButtonDefer>Another time</WelcomePrompt_ButtonDefer>
+
+		<BlockExecution_CloseMessage>The following application must stay closed during the {0} process:</BlockExecution_CloseMessage>
+		<BlockExecution_BlockMessageSingular>The execution of this application has been temporarily blocked, when the {0} process ends it can be used again normally.</BlockExecution_BlockMessageSingular>
+		<BlockExecution_BlockMessagePlural>The execution of these {0} applications has been temporarily blocked, when the {1} process ends, they can be used again normally:</BlockExecution_BlockMessagePlural>
+		<BlockExecution_MoreApplicationsMessage>+ {0} more applications...</BlockExecution_MoreApplicationsMessage>
+
+		<RestartPrompt_RestartMessage>For the process to complete, the computer needs to be restarted.</RestartPrompt_RestartMessage>
+		<RestartPrompt_AttributionText>It will automatically restart at {0}.</RestartPrompt_AttributionText>
+		<RestartPrompt_ProgressBarTitle>The process requires a restart...</RestartPrompt_ProgressBarTitle>
+		<RestartPrompt_ProgressBarStatus>Remaining Time:</RestartPrompt_ProgressBarStatus>
+		<RestartPrompt_AutoRestartMessage>The device will automatically reboot at the end of the countdown.</RestartPrompt_AutoRestartMessage>
+		<RestartPrompt_SaveMessage>Please, save all your work and restart your computer within the allotted time.</RestartPrompt_SaveMessage>
+		<RestartPrompt_ButtonRestartLater>Minimize</RestartPrompt_ButtonRestartLater>
+		<RestartPrompt_ButtonRestartNow>Restart Now</RestartPrompt_ButtonRestartNow>
+	</UI_Messages_KO>
+
+	<!-- UI Toast Notification Messages - Russian -->
+	<UI_Messages_RU>
+		<AttributionTextAutoContinue>This message will auto-dismiss in {0}.</AttributionTextAutoContinue>
+		<RemainingTimeHours>hours</RemainingTimeHours>
+		<RemainingTimeHour>hour</RemainingTimeHour>
+		<RemainingTimeMinutes>minutes</RemainingTimeMinutes>
+		<RemainingTimeMinute>minute</RemainingTimeMinute>
+		<DeploymentTypeInstall>Install</DeploymentTypeInstall>
+		<DeploymentTypeUninstall>Uninstall</DeploymentTypeUninstall>
+		<DeploymentTypeRepair>Repair</DeploymentTypeRepair>
+
+		<WelcomePrompt_WelcomeMessage>The application {0} process is about to start.</WelcomePrompt_WelcomeMessage>
+		<WelcomePrompt_CloseMessageSingular>The following running application must be closed before and during the process:</WelcomePrompt_CloseMessageSingular>
+		<WelcomePrompt_CloseMessagePlural>The following {0} running applications must be closed before and during the process:</WelcomePrompt_CloseMessagePlural>
+		<WelcomePrompt_AttributionTextAutoDeferral>The {0} will auto-defer in {1}.</WelcomePrompt_AttributionTextAutoDeferral>
+		<WelcomePrompt_ProgressBarTitleSingular>Please, close the following application:</WelcomePrompt_ProgressBarTitleSingular>
+		<WelcomePrompt_ProgressBarTitlePlural>Please, close the following applications:</WelcomePrompt_ProgressBarTitlePlural>
+		<WelcomePrompt_ProgressBarStatus>Automatic closing in:</WelcomePrompt_ProgressBarStatus>
+		<WelcomePrompt_MoreApplicationsMessage>{0} running applications:</WelcomePrompt_MoreApplicationsMessage>
+		<WelcomePrompt_RemainingDeferrals>Remaining deferrals: {0}</WelcomePrompt_RemainingDeferrals>
+		<WelcomePrompt_DeferMessage>You can defer the {0} to another time...</WelcomePrompt_DeferMessage>
+		<WelcomePrompt_DeferMessageDeadline>Deferral deadline: {0}</WelcomePrompt_DeferMessageDeadline>
+		<WelcomePrompt_DeferMessageDeadlineWarning>Once this period has expired, you will not be able to postpone the {0}.</WelcomePrompt_DeferMessageDeadlineWarning>
+		<WelcomePrompt_ButtonCloseSingular>Close application</WelcomePrompt_ButtonCloseSingular>
+		<WelcomePrompt_ButtonClosePlural>Close applications</WelcomePrompt_ButtonClosePlural>
+		<WelcomePrompt_ButtonContinue>Continue</WelcomePrompt_ButtonContinue>
+		<WelcomePrompt_ButtonDefer>Another time</WelcomePrompt_ButtonDefer>
+
+		<BlockExecution_CloseMessage>The following application must stay closed during the {0} process:</BlockExecution_CloseMessage>
+		<BlockExecution_BlockMessageSingular>The execution of this application has been temporarily blocked, when the {0} process ends it can be used again normally.</BlockExecution_BlockMessageSingular>
+		<BlockExecution_BlockMessagePlural>The execution of these {0} applications has been temporarily blocked, when the {1} process ends, they can be used again normally:</BlockExecution_BlockMessagePlural>
+		<BlockExecution_MoreApplicationsMessage>+ {0} more applications...</BlockExecution_MoreApplicationsMessage>
+
+		<RestartPrompt_RestartMessage>For the process to complete, the computer needs to be restarted.</RestartPrompt_RestartMessage>
+		<RestartPrompt_AttributionText>It will automatically restart at {0}.</RestartPrompt_AttributionText>
+		<RestartPrompt_ProgressBarTitle>The process requires a restart...</RestartPrompt_ProgressBarTitle>
+		<RestartPrompt_ProgressBarStatus>Remaining Time:</RestartPrompt_ProgressBarStatus>
+		<RestartPrompt_AutoRestartMessage>The device will automatically reboot at the end of the countdown.</RestartPrompt_AutoRestartMessage>
+		<RestartPrompt_SaveMessage>Please, save all your work and restart your computer within the allotted time.</RestartPrompt_SaveMessage>
+		<RestartPrompt_ButtonRestartLater>Minimize</RestartPrompt_ButtonRestartLater>
+		<RestartPrompt_ButtonRestartNow>Restart Now</RestartPrompt_ButtonRestartNow>
+	</UI_Messages_RU>
+
+	<!-- UI Toast Notification Messages - Chinese (Simplified) -->
+	<UI_Messages_ZH-Hans>
+		<AttributionTextAutoContinue>This message will auto-dismiss in {0}.</AttributionTextAutoContinue>
+		<RemainingTimeHours>hours</RemainingTimeHours>
+		<RemainingTimeHour>hour</RemainingTimeHour>
+		<RemainingTimeMinutes>minutes</RemainingTimeMinutes>
+		<RemainingTimeMinute>minute</RemainingTimeMinute>
+		<DeploymentTypeInstall>Install</DeploymentTypeInstall>
+		<DeploymentTypeUninstall>Uninstall</DeploymentTypeUninstall>
+		<DeploymentTypeRepair>Repair</DeploymentTypeRepair>
+
+		<WelcomePrompt_WelcomeMessage>The application {0} process is about to start.</WelcomePrompt_WelcomeMessage>
+		<WelcomePrompt_CloseMessageSingular>The following running application must be closed before and during the process:</WelcomePrompt_CloseMessageSingular>
+		<WelcomePrompt_CloseMessagePlural>The following {0} running applications must be closed before and during the process:</WelcomePrompt_CloseMessagePlural>
+		<WelcomePrompt_AttributionTextAutoDeferral>The {0} will auto-defer in {1}.</WelcomePrompt_AttributionTextAutoDeferral>
+		<WelcomePrompt_ProgressBarTitleSingular>Please, close the following application:</WelcomePrompt_ProgressBarTitleSingular>
+		<WelcomePrompt_ProgressBarTitlePlural>Please, close the following applications:</WelcomePrompt_ProgressBarTitlePlural>
+		<WelcomePrompt_ProgressBarStatus>Automatic closing in:</WelcomePrompt_ProgressBarStatus>
+		<WelcomePrompt_MoreApplicationsMessage>{0} running applications:</WelcomePrompt_MoreApplicationsMessage>
+		<WelcomePrompt_RemainingDeferrals>Remaining deferrals: {0}</WelcomePrompt_RemainingDeferrals>
+		<WelcomePrompt_DeferMessage>You can defer the {0} to another time...</WelcomePrompt_DeferMessage>
+		<WelcomePrompt_DeferMessageDeadline>Deferral deadline: {0}</WelcomePrompt_DeferMessageDeadline>
+		<WelcomePrompt_DeferMessageDeadlineWarning>Once this period has expired, you will not be able to postpone the {0}.</WelcomePrompt_DeferMessageDeadlineWarning>
+		<WelcomePrompt_ButtonCloseSingular>Close application</WelcomePrompt_ButtonCloseSingular>
+		<WelcomePrompt_ButtonClosePlural>Close applications</WelcomePrompt_ButtonClosePlural>
+		<WelcomePrompt_ButtonContinue>Continue</WelcomePrompt_ButtonContinue>
+		<WelcomePrompt_ButtonDefer>Another time</WelcomePrompt_ButtonDefer>
+
+		<BlockExecution_CloseMessage>The following application must stay closed during the {0} process:</BlockExecution_CloseMessage>
+		<BlockExecution_BlockMessageSingular>The execution of this application has been temporarily blocked, when the {0} process ends it can be used again normally.</BlockExecution_BlockMessageSingular>
+		<BlockExecution_BlockMessagePlural>The execution of these {0} applications has been temporarily blocked, when the {1} process ends, they can be used again normally:</BlockExecution_BlockMessagePlural>
+		<BlockExecution_MoreApplicationsMessage>+ {0} more applications...</BlockExecution_MoreApplicationsMessage>
+
+		<RestartPrompt_RestartMessage>For the process to complete, the computer needs to be restarted.</RestartPrompt_RestartMessage>
+		<RestartPrompt_AttributionText>It will automatically restart at {0}.</RestartPrompt_AttributionText>
+		<RestartPrompt_ProgressBarTitle>The process requires a restart...</RestartPrompt_ProgressBarTitle>
+		<RestartPrompt_ProgressBarStatus>Remaining Time:</RestartPrompt_ProgressBarStatus>
+		<RestartPrompt_AutoRestartMessage>The device will automatically reboot at the end of the countdown.</RestartPrompt_AutoRestartMessage>
+		<RestartPrompt_SaveMessage>Please, save all your work and restart your computer within the allotted time.</RestartPrompt_SaveMessage>
+		<RestartPrompt_ButtonRestartLater>Minimize</RestartPrompt_ButtonRestartLater>
+		<RestartPrompt_ButtonRestartNow>Restart Now</RestartPrompt_ButtonRestartNow>
+	</UI_Messages_ZH-Hans>
+
+	<!-- UI Toast Notification Messages - Chinese (Traditional) -->
+	<UI_Messages_ZH-Hant>
+		<AttributionTextAutoContinue>This message will auto-dismiss in {0}.</AttributionTextAutoContinue>
+		<RemainingTimeHours>hours</RemainingTimeHours>
+		<RemainingTimeHour>hour</RemainingTimeHour>
+		<RemainingTimeMinutes>minutes</RemainingTimeMinutes>
+		<RemainingTimeMinute>minute</RemainingTimeMinute>
+		<DeploymentTypeInstall>Install</DeploymentTypeInstall>
+		<DeploymentTypeUninstall>Uninstall</DeploymentTypeUninstall>
+		<DeploymentTypeRepair>Repair</DeploymentTypeRepair>
+
+		<WelcomePrompt_WelcomeMessage>The application {0} process is about to start.</WelcomePrompt_WelcomeMessage>
+		<WelcomePrompt_CloseMessageSingular>The following running application must be closed before and during the process:</WelcomePrompt_CloseMessageSingular>
+		<WelcomePrompt_CloseMessagePlural>The following {0} running applications must be closed before and during the process:</WelcomePrompt_CloseMessagePlural>
+		<WelcomePrompt_AttributionTextAutoDeferral>The {0} will auto-defer in {1}.</WelcomePrompt_AttributionTextAutoDeferral>
+		<WelcomePrompt_ProgressBarTitleSingular>Please, close the following application:</WelcomePrompt_ProgressBarTitleSingular>
+		<WelcomePrompt_ProgressBarTitlePlural>Please, close the following applications:</WelcomePrompt_ProgressBarTitlePlural>
+		<WelcomePrompt_ProgressBarStatus>Automatic closing in:</WelcomePrompt_ProgressBarStatus>
+		<WelcomePrompt_MoreApplicationsMessage>{0} running applications:</WelcomePrompt_MoreApplicationsMessage>
+		<WelcomePrompt_RemainingDeferrals>Remaining deferrals: {0}</WelcomePrompt_RemainingDeferrals>
+		<WelcomePrompt_DeferMessage>You can defer the {0} to another time...</WelcomePrompt_DeferMessage>
+		<WelcomePrompt_DeferMessageDeadline>Deferral deadline: {0}</WelcomePrompt_DeferMessageDeadline>
+		<WelcomePrompt_DeferMessageDeadlineWarning>Once this period has expired, you will not be able to postpone the {0}.</WelcomePrompt_DeferMessageDeadlineWarning>
+		<WelcomePrompt_ButtonCloseSingular>Close application</WelcomePrompt_ButtonCloseSingular>
+		<WelcomePrompt_ButtonClosePlural>Close applications</WelcomePrompt_ButtonClosePlural>
+		<WelcomePrompt_ButtonContinue>Continue</WelcomePrompt_ButtonContinue>
+		<WelcomePrompt_ButtonDefer>Another time</WelcomePrompt_ButtonDefer>
+
+		<BlockExecution_CloseMessage>The following application must stay closed during the {0} process:</BlockExecution_CloseMessage>
+		<BlockExecution_BlockMessageSingular>The execution of this application has been temporarily blocked, when the {0} process ends it can be used again normally.</BlockExecution_BlockMessageSingular>
+		<BlockExecution_BlockMessagePlural>The execution of these {0} applications has been temporarily blocked, when the {1} process ends, they can be used again normally:</BlockExecution_BlockMessagePlural>
+		<BlockExecution_MoreApplicationsMessage>+ {0} more applications...</BlockExecution_MoreApplicationsMessage>
+
+		<RestartPrompt_RestartMessage>For the process to complete, the computer needs to be restarted.</RestartPrompt_RestartMessage>
+		<RestartPrompt_AttributionText>It will automatically restart at {0}.</RestartPrompt_AttributionText>
+		<RestartPrompt_ProgressBarTitle>The process requires a restart...</RestartPrompt_ProgressBarTitle>
+		<RestartPrompt_ProgressBarStatus>Remaining Time:</RestartPrompt_ProgressBarStatus>
+		<RestartPrompt_AutoRestartMessage>The device will automatically reboot at the end of the countdown.</RestartPrompt_AutoRestartMessage>
+		<RestartPrompt_SaveMessage>Please, save all your work and restart your computer within the allotted time.</RestartPrompt_SaveMessage>
+		<RestartPrompt_ButtonRestartLater>Minimize</RestartPrompt_ButtonRestartLater>
+		<RestartPrompt_ButtonRestartNow>Restart Now</RestartPrompt_ButtonRestartNow>
+	</UI_Messages_ZH-Hant>
+
+	<!-- UI Toast Notification Messages - Slovak -->
+	<UI_Messages_SK>
+		<AttributionTextAutoContinue>This message will auto-dismiss in {0}.</AttributionTextAutoContinue>
+		<RemainingTimeHours>hours</RemainingTimeHours>
+		<RemainingTimeHour>hour</RemainingTimeHour>
+		<RemainingTimeMinutes>minutes</RemainingTimeMinutes>
+		<RemainingTimeMinute>minute</RemainingTimeMinute>
+		<DeploymentTypeInstall>Install</DeploymentTypeInstall>
+		<DeploymentTypeUninstall>Uninstall</DeploymentTypeUninstall>
+		<DeploymentTypeRepair>Repair</DeploymentTypeRepair>
+
+		<WelcomePrompt_WelcomeMessage>The application {0} process is about to start.</WelcomePrompt_WelcomeMessage>
+		<WelcomePrompt_CloseMessageSingular>The following running application must be closed before and during the process:</WelcomePrompt_CloseMessageSingular>
+		<WelcomePrompt_CloseMessagePlural>The following {0} running applications must be closed before and during the process:</WelcomePrompt_CloseMessagePlural>
+		<WelcomePrompt_AttributionTextAutoDeferral>The {0} will auto-defer in {1}.</WelcomePrompt_AttributionTextAutoDeferral>
+		<WelcomePrompt_ProgressBarTitleSingular>Please, close the following application:</WelcomePrompt_ProgressBarTitleSingular>
+		<WelcomePrompt_ProgressBarTitlePlural>Please, close the following applications:</WelcomePrompt_ProgressBarTitlePlural>
+		<WelcomePrompt_ProgressBarStatus>Automatic closing in:</WelcomePrompt_ProgressBarStatus>
+		<WelcomePrompt_MoreApplicationsMessage>{0} running applications:</WelcomePrompt_MoreApplicationsMessage>
+		<WelcomePrompt_RemainingDeferrals>Remaining deferrals: {0}</WelcomePrompt_RemainingDeferrals>
+		<WelcomePrompt_DeferMessage>You can defer the {0} to another time...</WelcomePrompt_DeferMessage>
+		<WelcomePrompt_DeferMessageDeadline>Deferral deadline: {0}</WelcomePrompt_DeferMessageDeadline>
+		<WelcomePrompt_DeferMessageDeadlineWarning>Once this period has expired, you will not be able to postpone the {0}.</WelcomePrompt_DeferMessageDeadlineWarning>
+		<WelcomePrompt_ButtonCloseSingular>Close application</WelcomePrompt_ButtonCloseSingular>
+		<WelcomePrompt_ButtonClosePlural>Close applications</WelcomePrompt_ButtonClosePlural>
+		<WelcomePrompt_ButtonContinue>Continue</WelcomePrompt_ButtonContinue>
+		<WelcomePrompt_ButtonDefer>Another time</WelcomePrompt_ButtonDefer>
+
+		<BlockExecution_CloseMessage>The following application must stay closed during the {0} process:</BlockExecution_CloseMessage>
+		<BlockExecution_BlockMessageSingular>The execution of this application has been temporarily blocked, when the {0} process ends it can be used again normally.</BlockExecution_BlockMessageSingular>
+		<BlockExecution_BlockMessagePlural>The execution of these {0} applications has been temporarily blocked, when the {1} process ends, they can be used again normally:</BlockExecution_BlockMessagePlural>
+		<BlockExecution_MoreApplicationsMessage>+ {0} more applications...</BlockExecution_MoreApplicationsMessage>
+
+		<RestartPrompt_RestartMessage>For the process to complete, the computer needs to be restarted.</RestartPrompt_RestartMessage>
+		<RestartPrompt_AttributionText>It will automatically restart at {0}.</RestartPrompt_AttributionText>
+		<RestartPrompt_ProgressBarTitle>The process requires a restart...</RestartPrompt_ProgressBarTitle>
+		<RestartPrompt_ProgressBarStatus>Remaining Time:</RestartPrompt_ProgressBarStatus>
+		<RestartPrompt_AutoRestartMessage>The device will automatically reboot at the end of the countdown.</RestartPrompt_AutoRestartMessage>
+		<RestartPrompt_SaveMessage>Please, save all your work and restart your computer within the allotted time.</RestartPrompt_SaveMessage>
+		<RestartPrompt_ButtonRestartLater>Minimize</RestartPrompt_ButtonRestartLater>
+		<RestartPrompt_ButtonRestartNow>Restart Now</RestartPrompt_ButtonRestartNow>
+	</UI_Messages_SK>
+
+	<!-- UI Toast Notification Messages - Czech -->
+	<UI_Messages_CZ>
+		<AttributionTextAutoContinue>This message will auto-dismiss in {0}.</AttributionTextAutoContinue>
+		<RemainingTimeHours>hours</RemainingTimeHours>
+		<RemainingTimeHour>hour</RemainingTimeHour>
+		<RemainingTimeMinutes>minutes</RemainingTimeMinutes>
+		<RemainingTimeMinute>minute</RemainingTimeMinute>
+		<DeploymentTypeInstall>Install</DeploymentTypeInstall>
+		<DeploymentTypeUninstall>Uninstall</DeploymentTypeUninstall>
+		<DeploymentTypeRepair>Repair</DeploymentTypeRepair>
+
+		<WelcomePrompt_WelcomeMessage>The application {0} process is about to start.</WelcomePrompt_WelcomeMessage>
+		<WelcomePrompt_CloseMessageSingular>The following running application must be closed before and during the process:</WelcomePrompt_CloseMessageSingular>
+		<WelcomePrompt_CloseMessagePlural>The following {0} running applications must be closed before and during the process:</WelcomePrompt_CloseMessagePlural>
+		<WelcomePrompt_AttributionTextAutoDeferral>The {0} will auto-defer in {1}.</WelcomePrompt_AttributionTextAutoDeferral>
+		<WelcomePrompt_ProgressBarTitleSingular>Please, close the following application:</WelcomePrompt_ProgressBarTitleSingular>
+		<WelcomePrompt_ProgressBarTitlePlural>Please, close the following applications:</WelcomePrompt_ProgressBarTitlePlural>
+		<WelcomePrompt_ProgressBarStatus>Automatic closing in:</WelcomePrompt_ProgressBarStatus>
+		<WelcomePrompt_MoreApplicationsMessage>{0} running applications:</WelcomePrompt_MoreApplicationsMessage>
+		<WelcomePrompt_RemainingDeferrals>Remaining deferrals: {0}</WelcomePrompt_RemainingDeferrals>
+		<WelcomePrompt_DeferMessage>You can defer the {0} to another time...</WelcomePrompt_DeferMessage>
+		<WelcomePrompt_DeferMessageDeadline>Deferral deadline: {0}</WelcomePrompt_DeferMessageDeadline>
+		<WelcomePrompt_DeferMessageDeadlineWarning>Once this period has expired, you will not be able to postpone the {0}.</WelcomePrompt_DeferMessageDeadlineWarning>
+		<WelcomePrompt_ButtonCloseSingular>Close application</WelcomePrompt_ButtonCloseSingular>
+		<WelcomePrompt_ButtonClosePlural>Close applications</WelcomePrompt_ButtonClosePlural>
+		<WelcomePrompt_ButtonContinue>Continue</WelcomePrompt_ButtonContinue>
+		<WelcomePrompt_ButtonDefer>Another time</WelcomePrompt_ButtonDefer>
+
+		<BlockExecution_CloseMessage>The following application must stay closed during the {0} process:</BlockExecution_CloseMessage>
+		<BlockExecution_BlockMessageSingular>The execution of this application has been temporarily blocked, when the {0} process ends it can be used again normally.</BlockExecution_BlockMessageSingular>
+		<BlockExecution_BlockMessagePlural>The execution of these {0} applications has been temporarily blocked, when the {1} process ends, they can be used again normally:</BlockExecution_BlockMessagePlural>
+		<BlockExecution_MoreApplicationsMessage>+ {0} more applications...</BlockExecution_MoreApplicationsMessage>
+
+		<RestartPrompt_RestartMessage>For the process to complete, the computer needs to be restarted.</RestartPrompt_RestartMessage>
+		<RestartPrompt_AttributionText>It will automatically restart at {0}.</RestartPrompt_AttributionText>
+		<RestartPrompt_ProgressBarTitle>The process requires a restart...</RestartPrompt_ProgressBarTitle>
+		<RestartPrompt_ProgressBarStatus>Remaining Time:</RestartPrompt_ProgressBarStatus>
+		<RestartPrompt_AutoRestartMessage>The device will automatically reboot at the end of the countdown.</RestartPrompt_AutoRestartMessage>
+		<RestartPrompt_SaveMessage>Please, save all your work and restart your computer within the allotted time.</RestartPrompt_SaveMessage>
+		<RestartPrompt_ButtonRestartLater>Minimize</RestartPrompt_ButtonRestartLater>
+		<RestartPrompt_ButtonRestartNow>Restart Now</RestartPrompt_ButtonRestartNow>
+	</UI_Messages_CZ>
+
+	<!-- UI Toast Notification Messages - Hungarian-->
+	<UI_Messages_HU>
+		<AttributionTextAutoContinue>This message will auto-dismiss in {0}.</AttributionTextAutoContinue>
+		<RemainingTimeHours>hours</RemainingTimeHours>
+		<RemainingTimeHour>hour</RemainingTimeHour>
+		<RemainingTimeMinutes>minutes</RemainingTimeMinutes>
+		<RemainingTimeMinute>minute</RemainingTimeMinute>
+		<DeploymentTypeInstall>Install</DeploymentTypeInstall>
+		<DeploymentTypeUninstall>Uninstall</DeploymentTypeUninstall>
+		<DeploymentTypeRepair>Repair</DeploymentTypeRepair>
+
+		<WelcomePrompt_WelcomeMessage>The application {0} process is about to start.</WelcomePrompt_WelcomeMessage>
+		<WelcomePrompt_CloseMessageSingular>The following running application must be closed before and during the process:</WelcomePrompt_CloseMessageSingular>
+		<WelcomePrompt_CloseMessagePlural>The following {0} running applications must be closed before and during the process:</WelcomePrompt_CloseMessagePlural>
+		<WelcomePrompt_AttributionTextAutoDeferral>The {0} will auto-defer in {1}.</WelcomePrompt_AttributionTextAutoDeferral>
+		<WelcomePrompt_ProgressBarTitleSingular>Please, close the following application:</WelcomePrompt_ProgressBarTitleSingular>
+		<WelcomePrompt_ProgressBarTitlePlural>Please, close the following applications:</WelcomePrompt_ProgressBarTitlePlural>
+		<WelcomePrompt_ProgressBarStatus>Automatic closing in:</WelcomePrompt_ProgressBarStatus>
+		<WelcomePrompt_MoreApplicationsMessage>{0} running applications:</WelcomePrompt_MoreApplicationsMessage>
+		<WelcomePrompt_RemainingDeferrals>Remaining deferrals: {0}</WelcomePrompt_RemainingDeferrals>
+		<WelcomePrompt_DeferMessage>You can defer the {0} to another time...</WelcomePrompt_DeferMessage>
+		<WelcomePrompt_DeferMessageDeadline>Deferral deadline: {0}</WelcomePrompt_DeferMessageDeadline>
+		<WelcomePrompt_DeferMessageDeadlineWarning>Once this period has expired, you will not be able to postpone the {0}.</WelcomePrompt_DeferMessageDeadlineWarning>
+		<WelcomePrompt_ButtonCloseSingular>Close application</WelcomePrompt_ButtonCloseSingular>
+		<WelcomePrompt_ButtonClosePlural>Close applications</WelcomePrompt_ButtonClosePlural>
+		<WelcomePrompt_ButtonContinue>Continue</WelcomePrompt_ButtonContinue>
+		<WelcomePrompt_ButtonDefer>Another time</WelcomePrompt_ButtonDefer>
+
+		<BlockExecution_CloseMessage>The following application must stay closed during the {0} process:</BlockExecution_CloseMessage>
+		<BlockExecution_BlockMessageSingular>The execution of this application has been temporarily blocked, when the {0} process ends it can be used again normally.</BlockExecution_BlockMessageSingular>
+		<BlockExecution_BlockMessagePlural>The execution of these {0} applications has been temporarily blocked, when the {1} process ends, they can be used again normally:</BlockExecution_BlockMessagePlural>
+		<BlockExecution_MoreApplicationsMessage>+ {0} more applications...</BlockExecution_MoreApplicationsMessage>
+
+		<RestartPrompt_RestartMessage>For the process to complete, the computer needs to be restarted.</RestartPrompt_RestartMessage>
+		<RestartPrompt_AttributionText>It will automatically restart at {0}.</RestartPrompt_AttributionText>
+		<RestartPrompt_ProgressBarTitle>The process requires a restart...</RestartPrompt_ProgressBarTitle>
+		<RestartPrompt_ProgressBarStatus>Remaining Time:</RestartPrompt_ProgressBarStatus>
+		<RestartPrompt_AutoRestartMessage>The device will automatically reboot at the end of the countdown.</RestartPrompt_AutoRestartMessage>
+		<RestartPrompt_SaveMessage>Please, save all your work and restart your computer within the allotted time.</RestartPrompt_SaveMessage>
+		<RestartPrompt_ButtonRestartLater>Minimize</RestartPrompt_ButtonRestartLater>
+		<RestartPrompt_ButtonRestartNow>Restart Now</RestartPrompt_ButtonRestartNow>
+	</UI_Messages_HU>
+
+</ToastNotification_Config>

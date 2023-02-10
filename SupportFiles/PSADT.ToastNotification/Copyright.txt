@@ -1,0 +1,45 @@
+BlockExecution_Hero:
+BlockExecution_AppLogoOverride:
+
+Copyright Dave Gamez
+https://www.davegamez.com/
+
+-----------------------------------
+
+DialogBox_Hero:
+DialogBox_AppLogoOverride:
+
+Copyright Sebastian Kamph & Linn Fritz
+https://dribbble.com/shots/1753935-Question-turns-into-answer
+
+-----------------------------------
+
+InstallationProgress_Hero:
+
+Copyright Kolega Otaku
+https://steemit.com/@kolegaotaku
+
+-----------------------------------
+
+InstallationRestartPrompt_Hero:
+InstallationRestartPrompt_AppLogoOverride:
+InstallationProgress_AppLogoOverride:
+
+Copyright Christophe Kerebel
+https://dribbble.com/christophekerebel
+
+-----------------------------------
+
+InstallationPrompt_Hero:
+InstallationPrompt_AppLogoOverride:
+
+Copyright Dan Palmer
+https://www.dpalmermotion.com
+
+-----------------------------------
+
+WelcomePrompt_Hero:
+WelcomePrompt_AppLogoOverride:
+
+Copyright Róbert Oláh
+https://dribbble.com/shots/5343519-Working
