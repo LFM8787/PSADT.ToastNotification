@@ -190,7 +190,7 @@ https://user-images.githubusercontent.com/13755139/218118541-446c5c0a-9de7-4d84-
 
 2. ![](https://img.shields.io/badge/-New!-brightgreen) If any `CriticalProcesses_NeverKill` matches any process name or filters, it won`t be added and a warning appears in console/log:
 
-![](media/InstallationWelcome_CriticalProcesses_NeverKill.png)
+	![](media/InstallationWelcome_CriticalProcesses_NeverKill.png)
 
 3. ![](https://img.shields.io/badge/-New!-brightgreen) The output object array contains the process name, description, path and company.
 ### Show-WelcomePrompt
