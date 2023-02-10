@@ -3,7 +3,8 @@ Extension for PowerShell App Deployment Toolkit that replace all the windows and
 
 ## Features
 - Administrative rights not needed.
-- SYSTEM raised Toast Notification can interact with console user.
+- Wraps the original functions, so no script modification needed.
+- SYSTEM raised Toast Notifications can interact with logged in no Administrator user.
 - Ability to interact with the notifications using events or protocols.
 - Can search for closing apps using wildcards.
 - Can search for closing apps based on windows title or process path using wildcards.
@@ -11,7 +12,7 @@ Extension for PowerShell App Deployment Toolkit that replace all the windows and
 - Added array of never block applications (they can be killed but not blocked).
 - Limit functions timeout to InstallationUITimeout.
 - Ability to use MUI cache applications name if exists.
-- Highly customizable Toast Notification schemes.
+- Highly customizable Toast Notification visual schemes.
 - Dynamically update running applications with icons and extended applications information.
 - Fallback to original Windows Forms and dialogs if any error occurs.
 - New dedicated strings with multilanguage support.
@@ -26,18 +27,21 @@ Extension for PowerShell App Deployment Toolkit that replace all the windows and
 
 ## Functions (wrappers) and improvements
 ### Show-InstallationWelcome
-1. ✳️ Now you can search for processes using like operator. If you include any wildcard character, the evaluating will be `-like` instead of `-eq`. The search object `AcroRd*=Adobe Acrobat Reader` matches 32/64 bits version of the application. See [about Comparison Operators - PowerShell | Microsoft Learn](https://learn.microsoft.com/en-us/powershell/module/microsoft.powershell.core/about/about_comparison_operators?view=powershell-7.3#-like-and--notlike).
+1. ![](https://img.shields.io/badge/-New!-brightgreen) Now you can search for processes using `like` operator. If you include any wildcard character, the evaluating operator will be `-like` instead of `-eq`. The search object `AcroRd*=Adobe Acrobat Reader` matches 32/64 bits version of the application, only **currently running processes** will be added to the `$ProcessObjects`. See [about Comparison Operators - PowerShell | Microsoft Learn](https://learn.microsoft.com/en-us/powershell/module/microsoft.powershell.core/about/about_comparison_operators?view=powershell-7.3#-like-and--notlike).
 
-2. ✳️ For windows title search use `title:...` as suffix, if any process window validates the filter it will be added to the `$ProcessObjects`. Wildcards are allowed `title:*Adobe*` will add any process that is currently running and the title is like `*Adobe*`. No `title:...=Application Name` supported. See [about Comparison Operators - PowerShell | Microsoft Learn](https://learn.microsoft.com/en-us/powershell/module/microsoft.powershell.core/about/about_comparison_operators?view=powershell-7.3#-like-and--notlike).
+2. ![](https://img.shields.io/badge/-New!-brightgreen) ![](https://img.shields.io/badge/Warning-Slow_and_CPU_consuming-orange) For windows title search use `title:...` as suffix, if any process window validates the filter it will be added to the `$ProcessObjects`. Wildcards supported, `title:*Adobe*` will add any process that is **currently running** and the title is like `*Adobe*`. No `title:...=Application Name` supported. See [about Comparison Operators - PowerShell | Microsoft Learn](https://learn.microsoft.com/en-us/powershell/module/microsoft.powershell.core/about/about_comparison_operators?view=powershell-7.3#-like-and--notlike).
 
-3. ✳️ For process path search use `path:...` as suffix, all the currently running processes validating the filter will be added to the `$ProcessObjects`. Wildcards are allowed `path:$($env:ProgramFiles)\*Office*\*` will add any process that is currently running and the path is like `$($env:ProgramFiles)\*Office*\*`. No `path:...=Application Name` supported. See [about Comparison Operators - PowerShell | Microsoft Learn](https://learn.microsoft.com/en-us/powershell/module/microsoft.powershell.core/about/about_comparison_operators?view=powershell-7.3#-like-and--notlike).
+3. ![](https://img.shields.io/badge/-New!-brightgreen) ![](https://img.shields.io/badge/Warning-Slow_and_CPU_consuming-orange) For process path search use `path:...` as suffix, all the currently running processes validating the filter will be added to the `$ProcessObjects`. Wildcards supported, `path:$($env:ProgramFiles)\*Office*\*` will add any process that is **currently running** and the path is like `$($env:ProgramFiles)\*Office*\*`. No `path:...=Application Name` supported. See [about Comparison Operators - PowerShell | Microsoft Learn](https://learn.microsoft.com/en-us/powershell/module/microsoft.powershell.core/about/about_comparison_operators?view=powershell-7.3#-like-and--notlike).
 
-4. ✳️Fixed some bugs in splitting `$CloseApps` and removes processes that match `CriticalProcesses_NeverKill`, they won`t be added and a warning appears in console/log.
+4. ![](https://img.shields.io/badge/-New!-brightgreen) The closing applications evaluation removes processes that are included in `CriticalProcesses_NeverKill`, they won`t be added and a warning appears in console/log:
 
-5. Internal function mechanism is kept for compatibility but, if the switch `-PersistPrompt` is not present, the user can dismiss the notification and a `Timeout` result is received.
+	![](media/InstallationWelcome_CriticalProcesses_NeverKill.png)
 
-6. ✳️ If any application to be blocked matches `CriticalProcesses_NeverBlock` it won`t be added and a warning appears in console/log:
-![](media/InstallationWelcome_CriticalProcesses_NeverBlock.png)
+5. Internal function mechanism is kept for backward compatibility but, if the switch `-PersistPrompt` is not present, the user can dismiss or close the notification and a `Timeout` result is returned.
+
+6. ![](https://img.shields.io/badge/-New!-brightgreen) If the `-BlockExecution` switch is used, any process included in `CriticalProcesses_NeverBlock` won`t be added for blocking and a warning appears in console/log:
+
+	![](media/InstallationWelcome_CriticalProcesses_NeverBlock.png)
 
 <table>
 <tr>
@@ -59,7 +63,7 @@ https://user-images.githubusercontent.com/13755139/218121541-5cbe46ca-c5eb-44bf-
 ### Show-BalloonTip
 1. Shows a long duration Toast Notification if the `$BalloonTipTime` is greater than `10000` ms.
 
-2. No need to call any external script, the Toast Notification always shows itself like if `$NoWait` is always `$true`.
+2. No need to call any external script, the Toast Notification always shows itself like if `$NoWait` was `$true`.
 
 3. For more options see the [Customizable visual style](#customizable-visual-style) section.
 
@@ -85,9 +89,9 @@ https://user-images.githubusercontent.com/13755139/218121541-5cbe46ca-c5eb-44bf-
 ### Show-DialogBox
 1. The buttons get the translated string using the Data Extraction Extension to match the user language, the `InstallationUI_LanguageOverride` is omitted like original dialog box.
 
-2. ✳️ If the `$Timeout` is bigger the `$configInstalltionUITimeout` you can use `LimitTimeoutToInstallationUI` config option to limit the timeout.
+2. ![](https://img.shields.io/badge/-New!-brightgreen) If the `$Timeout` is bigger than `$configInstalltionUITimeout` you can use `LimitTimeoutToInstallationUI` config option to limit the timeout.
 
-3. You can use `ShowAttributionText` config option to show a subtle text indicating the auto-continue timeout.
+3. You can use `ShowAttributionText` config option to show a subtle text indicating the auto-dismiss timeout.
 
 4. For more options see the [Customizable visual style](#customizable-visual-style) section.
 
@@ -105,15 +109,15 @@ https://user-images.githubusercontent.com/13755139/218116614-dd4f3270-ae05-4b53-
 </table>
 
 ### Show-InstallationRestartPrompt
-1. ✳️ The shutdown command calls `shutdown.exe /r /f /t $SilentCountdownSeconds` instead of `Restart-Computer` since sometimes the cmdlet does not work.
+1. ![](https://img.shields.io/badge/-New!-brightgreen) The shutdown command calls `shutdown.exe /r /f /t $SilentCountdownSeconds` instead of `Restart-Computer` since sometimes the cmdlet does not work.
 
 2. Ability to show a warning icon by using `InstallationRestartPrompt_ShowIcon` config option.
 
-3. You can use `ShowAttributionText` config option to show a subtle text indicating the auto-reboot timeout.
+3. You can use `ShowAttributionText` config option to show a subtle text indicating the auto-restart timeout.
 
 4. If the parameter `$NoCountdown` is `$false` the Toast Notification will show a progress bar with the timeout to auto-restart.
 
-5. Closing or dismissing the Toast Notification work like the `Minimize` button.
+5. Closing or dismissing the Toast Notification works like the `Minimize` button.
 
 6. For more options see the [Customizable visual style](#customizable-visual-style) section.
 
@@ -131,11 +135,11 @@ https://user-images.githubusercontent.com/13755139/218116985-35b297ae-59a4-4300-
 </table>
 
 ### Show-InstallationPrompt
-1. ✳️ If the `$Timeout` is bigger the `$configInstalltionUITimeout` you can use `LimitTimeoutToInstallationUI` config option to limit the timeout.
+1. ![](https://img.shields.io/badge/-New!-brightgreen) If the `$Timeout` is bigger than `$configInstalltionUITimeout` you can use `LimitTimeoutToInstallationUI` config option to limit the timeout.
 
 2. Asynchronously behavior maintained like original function.
 
-3. You can use `ShowAttributionText` to show a subtle text indicating the auto-deferral or auto-continue timeout.
+3. You can use `ShowAttributionText` to show a subtle text indicating the auto-dismiss timeout.
 
 4. For more options see the [Customizable visual style](#customizable-visual-style) section.
 
@@ -153,7 +157,7 @@ https://user-images.githubusercontent.com/13755139/218117418-fca32b08-f578-422e-
 </table>
 
 ### Show-InstallationProgress
-1. ✳️ Defines the new variable `InstallationProgressFunctionCalled` that works like a switch indicating that `Close-InstallationProgress` should be called.
+1. ![](https://img.shields.io/badge/-New!-brightgreen) Defines the new variable `InstallationProgressFunctionCalled` that works like a switch indicating that `Close-InstallationProgress` should be called.
 
 2. You can use `ShowAttributionText` config option to show a subtle text indicating the deployment progress message.
 
@@ -182,42 +186,45 @@ https://user-images.githubusercontent.com/13755139/218118541-446c5c0a-9de7-4d84-
 
 ## Internal functions (wrappers) and improvements
 ### Get-RunningProcesses
-1. ✳️ The function has changed, now it receives a `[PSCustomObject[]]` as input, retro compatibility guaranteed.
+1. ![](https://img.shields.io/badge/-New!-brightgreen) The function has changed, now it receives a `[PSCustomObject[]]` as input, backward compatibility kept.
 
-2. ✳️ If any `CriticalProcesses_NeverKill` matches any process name or filters, it won`t be added and a warning appears in console/log:
+2. ![](https://img.shields.io/badge/-New!-brightgreen) If any `CriticalProcesses_NeverKill` matches any process name or filters, it won`t be added and a warning appears in console/log:
+
 ![](media/InstallationWelcome_CriticalProcesses_NeverKill.png)
-### Show-WelcomePrompt
-1. ✳️ If you do not like the **Continue** button string like me, you can use `WelcomePrompt_ReplaceContinueButtonDeploymentType` and now the text will show the translated strings of `Install`, `Repair` or `Uninstall` based on the deployment type of the script.
 
-2. ✳️ If the `$CloseAppsCountdown` is bigger the `$configInstalltionUITimeout` you can use `LimitTimeoutToInstallationUI` to limit the timeout.
+3. ![](https://img.shields.io/badge/-New!-brightgreen) The output object array contains the process name, description, path and company.
+### Show-WelcomePrompt
+1. ![](https://img.shields.io/badge/-New!-brightgreen) If you do not like the **Continue** button string like me, you can use `WelcomePrompt_ReplaceContinueButtonDeploymentType` and now the text will show the translated strings of `Install`, `Repair` or `Uninstall` based on the deployment type of the script.
+
+2. ![](https://img.shields.io/badge/-New!-brightgreen) If the `$CloseAppsCountdown` is bigger than `$configInstalltionUITimeout` you can use `LimitTimeoutToInstallationUI` to limit the timeout.
 
 3. You can use `ShowAttributionText` to show a subtle text indicating the auto-deferral or auto-continue timeout.
 
-4. ✳️ Ability to show more than the process name by using `ShowApplicationsIcons` and `ShowExtendedApplicationsInformation`.
+4. ![](https://img.shields.io/badge/-New!-brightgreen) Ability to show more than the process name by using `ShowApplicationsIcons` and `ShowExtendedApplicationsInformation`.
 
 5. By design the Toast Notification can only show up to 5 applications, additional ones will be grouped in the last item. You can reduce the amount of showed row by using `WelcomePrompt_MaxRunningProcessesRows`.
 
-6. ✳️ The new strings react to the deployment type showing correctly if the application is running an `Installation`, `Repairing` or `Uninstallation` process and the translated string will be integrated in the showed text as well as the count of running applications to close.
+6. ![](https://img.shields.io/badge/-New!-brightgreen) The new strings react to the deployment type showing correctly if the application is running an `Installation`, `Repairing` or `Uninstallation` process and the translated string will be integrated in the showed text as well as the count of running applications to close.
 
 7. For more options see the [Customizable visual style](#customizable-visual-style) section.
 ### Close-InstallationProgress
 1. Wraps the original function but removes any background event or job.
 
-2. The original function is only called if the `Show-InstallationProgress` function was used before.
+2. ![](https://img.shields.io/badge/-New!-brightgreen) The original function is only called if the `Show-InstallationProgress` function was used before.
 ### Exit-Script
 1. Wraps the original function but removes any created variable before.
 ### New-BlockExecutionToastNotificationTemplate
-1. Creates the template that will be raised when a blocked application tries to run.
+1. Creates the Toast Notification template that will be raised when a blocked application tries to run.
 
-2. ✳️ Puts a list at the bottom of the Toast Notification showing the blocked applications.
+2. ![](https://img.shields.io/badge/-New!-brightgreen) Puts a list at the bottom of the Toast Notification showing the blocked applications.
 
-3. The Toast Notification shows which applications is being `installed`, `repaired` or `uninstalled` in the title.
+3. ![](https://img.shields.io/badge/-New!-brightgreen) The Toast Notification shows which applications is being `installed`, `repaired` or `uninstalled` in the title.
 
 4. For more options see the [Customizable visual style](#customizable-visual-style) section.
 ### Show-BlockExecutionToastNotification
 1. Shows a previously created Toast Notification if any blocked application tries to run.
 
-2. ✳️ Ability to show more than the process name by using `ShowApplicationsIcons` and `ShowExtendedApplicationsInformation`.
+2. ![](https://img.shields.io/badge/-New!-brightgreen) Ability to show more than the process name by using `ShowApplicationsIcons` and `ShowExtendedApplicationsInformation`.
 
 3. For more options see the [Customizable visual style](#customizable-visual-style) section.
 
@@ -231,31 +238,31 @@ https://user-images.githubusercontent.com/13755139/218119133-639d152d-1b72-4026-
 </table>
 
 ### Block-AppExecution
-1. ✳️ The function has changed, now it receives a `[PSCustomObject[]]` as input, retro compatibility guaranteed.
+1. ![](https://img.shields.io/badge/-New!-brightgreen) The function has changed, now it receives a `[PSCustomObject[]]` as input, backward compatibility kept.
 
 2. Changed the logic to detect if user has administrative rights.
 
 3. Fixed a bug since version `3.8.4` with the task scheduled name.
 
-4. ✳️ If the process that will be blocked has information in the *Image File Execution Option* registry key, it will be backed up and restore after the deployment process or reboot.
+4. ![](https://img.shields.io/badge/-New!-brightgreen) If the process that will be blocked has information in the *Image File Execution Option* registry key, it will be backed up and restored after the deployment process or reboot.
 
-5. ✳️ Now the blocked application registry subkey are recreated volatile so if any error occurs with a logoff/reboot all will be unlocked (the original scheduled task is no longer needed but kept for compatibility).
+5. ![](https://img.shields.io/badge/-New!-brightgreen) Now the blocked application registry subkey are recreated volatile, if any error occurs, with a logoff/reboot all will be unlocked (the original scheduled task is no longer needed but kept for backward compatibility). See [PSADT.VolatilePaths Extension](https://github.com/LFM8787/PSADT.VolatilePaths)
 
-6. The remove blocked application scheduled tasks auto-delete itself after running.
+6. ![](https://img.shields.io/badge/-New!-brightgreen) The remove blocked application scheduled tasks auto-delete itself after running.
 
-7. ✳️ New scheduled task that restores the backed up *Image File Execution Option* per process that auto-deletes itself after execution.
+7. ![](https://img.shields.io/badge/-New!-brightgreen) New scheduled task that restores the backed up *Image File Execution Option* per process that auto-deletes itself after execution.
 
-8. Use new cmdlets to register the scheduled tasks.
+8. Uses new cmdlets to register the scheduled tasks.
 
-9. ✳️ The users who tries to run a blocked application is registered in log by default.
+9. ![](https://img.shields.io/badge/-New!-brightgreen) The users who tries to run a blocked application is registered in log by default.
 
-10. Minor retro compatible changes to the VBS script to capture the blocked application process.
+10. Minor backward compatible changes to the VBS script to capture the blocked application process.
 ### Unblock-AppExecution
 1. Changed the logic to detect if user has administrative rights.
 
-2. ✳️ Tries to remove the Debugger property per process, but if any process remains blocked, the scheduled task will retry hourly.
+2. ![](https://img.shields.io/badge/-New!-brightgreen) Tries to remove the Debugger property per process, but if any process remains blocked, the scheduled task will retry hourly.
 
-3. Restore the backed up *Image File Execution Option* per process by calling the scheduled task created.
+3. Restores the backed up *Image File Execution Option* per process by calling the scheduled task created.
 ## Internal functions
 `This set of functions are internals and are not designed to be called directly`
 * **New-DynamicFunction** - Defines a new function with the given name, scope and content given.
@@ -297,6 +304,7 @@ General options and extended configuration for the wrapped functions:
 * **InstallationRestartPrompt_ShowIcon**: Shows a warning icon in the restart notification.
 
 Options used by the Application that raise the Toast Notification:
+> The custom application identifier used to raise the Toast Notification is automatically registered system wide or per user and it is volatile, nothing remains in registry after logoff/reboot.
 
 * **AppId**: Identifier of the application used to display the Toast Notification.
 * **DisplayName**: Display name on Toast Notification used to display it.
@@ -358,8 +366,6 @@ Before editing the Toast Notification visual style see [App notification content
 </td>
 </tr>
 </table>
-
-
 
 ## How to Install
 #### 1. Download and copy into Toolkit folder.
