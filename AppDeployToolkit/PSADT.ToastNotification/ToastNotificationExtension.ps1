@@ -2,12 +2,11 @@
 .SYNOPSIS
 	Toast Notification Extension script file, must be dot-sourced by the AppDeployToolkitExtension.ps1 script.
 .DESCRIPTION
-	Use system methods to enqueue a rename or delete files or folder after reboot.
-	Creates registry keys that are automatically deleted after reboot.
+	Replaces all the windows and dialogs with Toast Notifications with a lot of visual and functional improvements.
 .NOTES
 	Author:  Leonardo Franco Maragna
-	Version: 1.0
-	Date:    2023/02/10
+	Version: 1.0.1
+	Date:    2023/02/15
 #>
 [CmdletBinding()]
 Param (
@@ -21,8 +20,8 @@ Param (
 ## Variables: Extension Info
 $ToastNotificationExtName = "ToastNotificationExtension"
 $ToastNotificationExtScriptFriendlyName = "Toast Notification Extension"
-$ToastNotificationExtScriptVersion = "1.0"
-$ToastNotificationExtScriptDate = "2023/02/10"
+$ToastNotificationExtScriptVersion = "1.0.1"
+$ToastNotificationExtScriptDate = "2023/02/15"
 $ToastNotificationExtSubfolder = "PSADT.ToastNotification"
 $ToastNotificationExtConfigFileName = "ToastNotificationConfig.xml"
 
@@ -56,6 +55,55 @@ enum DialogButton {
 	Help = 808
 	TryAgain = 809
 	Continue = 810
+}
+
+## Variables: Resolve Parameters. For backward compatibility
+if (-not (Test-Path "variable:ResolveParameters")) {
+	[ScriptBlock]$ResolveParameters = {
+		Param (
+			[Parameter(Mandatory = $true, Position = 0, ValueFromPipeline = $true, ValueFromPipelineByPropertyName = $true)]
+			[ValidateNotNullOrEmpty()]$Parameter
+		)
+	
+		switch ($Parameter.Value.GetType().Name) {
+			'SwitchParameter' {
+				"-$($Parameter.Key):`$$($Parameter.Value.ToString().ToLower())"
+			}
+			'Boolean' {
+				"-$($Parameter.Key):`$$($Parameter.Value.ToString().ToLower())"
+			}
+			'Int16' {
+				"-$($Parameter.Key):$($Parameter.Value)"
+			}
+			'Int32' {
+				"-$($Parameter.Key):$($Parameter.Value)"
+			}
+			'Int64' {
+				"-$($Parameter.Key):$($Parameter.Value)"
+			}
+			'UInt16' {
+				"-$($Parameter.Key):$($Parameter.Value)"
+			}
+			'UInt32' {
+				"-$($Parameter.Key):$($Parameter.Value)"
+			}
+			'UInt64' {
+				"-$($Parameter.Key):$($Parameter.Value)"
+			}
+			'Single' {
+				"-$($Parameter.Key):$($Parameter.Value)"
+			}
+			'Double' {
+				"-$($Parameter.Key):$($Parameter.Value)"
+			}
+			'Decimal' {
+				"-$($Parameter.Key):$($Parameter.Value)"
+			}
+			default {
+				"-$($Parameter.Key):`'$($Parameter.Value)`'"
+			}
+		}
+	}
 }
 
 ## Import variables from XML configuration file
@@ -270,6 +318,8 @@ foreach ($supportedFunction in $SupportedFunctions) {
 		RestartPrompt_SaveMessage                 = [string]$xmlUIToastNotificationMessages.RestartPrompt_SaveMessage
 		RestartPrompt_ButtonRestartLater          = [string]$xmlUIToastNotificationMessages.RestartPrompt_ButtonRestartLater
 		RestartPrompt_ButtonRestartNow            = [string]$xmlUIToastNotificationMessages.RestartPrompt_ButtonRestartNow
+
+		InstallationPrompt_AttributionTextDismiss = [string]$xmlUIToastNotificationMessages.InstallationPrompt_AttributionTextDismiss
 	}
 }
 
@@ -548,7 +598,7 @@ Function Get-RunningProcesses {
 			}
 
 			## Get all running processes. Match against the process names to search for to find running processes.
-			[array]$runningProcesses = Get-Process | Where-Object -FilterScript $whereObjectFilter | Select-Object ProcessName, Path, Company, MainWindowTitle, ProcessDescription | Sort-Object ProcessName
+			[System.Diagnostics.Process[]]$runningProcesses = Get-Process | Where-Object -FilterScript $whereObjectFilter | Sort-Object ProcessName
 
 			if ($runningProcesses) {
 				## Select the process with visible windows or full path if they are repeated
@@ -1910,7 +1960,7 @@ Function Show-WelcomePrompt {
 		if (-not (Test-Path -Path $ResourceFolder -PathType Container)) {
 			try {
 				New-Folder -Path $ResourceFolder -ContinueOnError $false
-				Remove-FolderAfterReboot -Path $ResourceFolder -ContinueOnError $true -DisableFunctionLogging
+				$null = Remove-FolderAfterReboot -Path $ResourceFolder -ContinueOnError $true -DisableFunctionLogging
 			}
 			catch {
 				Write-Log -Message "Unable to create Toast Notification resource folder. Falling back to original function...`r`n$(Resolve-Error)" -Severity 3 -Source ${CmdletName}
@@ -2217,7 +2267,7 @@ Function Show-BalloonTip {
 		if (-not (Test-Path -Path $ResourceFolder -PathType Container)) {
 			try {
 				New-Folder -Path $ResourceFolder -ContinueOnError $false
-				Remove-FolderAfterReboot -Path $ResourceFolder -ContinueOnError $true -DisableFunctionLogging
+				$null = Remove-FolderAfterReboot -Path $ResourceFolder -ContinueOnError $true -DisableFunctionLogging
 			}
 			catch {
 				Write-Log -Message "Unable to create Toast Notification resource folder. Falling back to original function...`r`n$(Resolve-Error)" -Severity 3 -Source ${CmdletName}
@@ -2695,7 +2745,7 @@ Function Show-DialogBox {
 		if (-not (Test-Path -Path $ResourceFolder -PathType Container)) {
 			try {
 				New-Folder -Path $ResourceFolder -ContinueOnError $false
-				Remove-FolderAfterReboot -Path $ResourceFolder -ContinueOnError $true -DisableFunctionLogging
+				$null = Remove-FolderAfterReboot -Path $ResourceFolder -ContinueOnError $true -DisableFunctionLogging
 			}
 			catch {
 				Write-Log -Message "Unable to create Toast Notification resource folder. Falling back to original function...`r`n$(Resolve-Error)" -Severity 3 -Source ${CmdletName}
@@ -2863,15 +2913,15 @@ Function Show-InstallationRestartPrompt {
 			}
 
 			## Initialize the Toast Notification Extension
-			try { Test-ToastNotificationExtension } catch {}
+			try { $null = Test-ToastNotificationExtension } catch {}
 
 			## Get the parameters passed to the function for invoking the function asynchronously
 			[hashtable]$installRestartPromptParameters = $PSBoundParameters
-			## Remove Silent reboot parameters from the list that is being forwarded to the main script for asynchronous function execution. This is only for Interactive mode so we dont need silent mode reboot parameters.
+			#  Remove Silent reboot parameters from the list that is being forwarded to the main script for asynchronous function execution. This is only for Interactive mode so we dont need silent mode reboot parameters.
 			$installRestartPromptParameters.Remove("NoSilentRestart")
 			$installRestartPromptParameters.Remove("SilentCountdownSeconds")
-			## Prepare a list of parameters of this function as a string
-			[string]$installRestartPromptParameters = ($installRestartPromptParameters.GetEnumerator() | ForEach-Object $ResolveParameters) -join " "
+			#  Prepare a list of parameters of this function as a string
+			[string]$installRestartPromptParameters = ($installRestartPromptParameters.GetEnumerator() | ForEach-Object { & $ResolveParameters $_ }) -join " "
 
 			## Start another powershell instance silently with function parameters from this function
 			Start-Process -FilePath "$($PSHome)\powershell.exe" -ArgumentList "-ExecutionPolicy Bypass -NoProfile -NoLogo -WindowStyle Hidden -Command &{& `'$scriptPath`' -ReferredInstallTitle `'$installTitle`' -ReferredInstallName `'$installName`' -ReferredLogName `'$logName`' -ShowInstallationRestartPrompt $installRestartPromptParameters -AsyncToolkitLaunch}" -WindowStyle Hidden -ErrorAction SilentlyContinue
@@ -3221,7 +3271,7 @@ Function Show-InstallationRestartPrompt {
 		if (-not (Test-Path -Path $ResourceFolder -PathType Container)) {
 			try {
 				New-Folder -Path $ResourceFolder -ContinueOnError $false
-				Remove-FolderAfterReboot -Path $ResourceFolder -ContinueOnError $true -DisableFunctionLogging
+				$null = Remove-FolderAfterReboot -Path $ResourceFolder -ContinueOnError $true -DisableFunctionLogging
 			}
 			catch {
 				Write-Log -Message "Unable to create Toast Notification resource folder. Falling back to original function...`r`n$(Resolve-Error)" -Severity 3 -Source ${CmdletName}
@@ -3401,13 +3451,13 @@ Function Show-InstallationPrompt {
 
 			## Get parameters for calling function asynchronously
 			[hashtable]$installPromptParameters = $PSBoundParameters
-			# Remove the NoWait parameter so that the script is run synchronously in the new PowerShell session. This also prevents the function to loop indefinitely.
+			#  Remove the NoWait parameter so that the script is run synchronously in the new PowerShell session. This also prevents the function to loop indefinitely.
 			$installPromptParameters.Remove("NoWait")
-			# Format the parameters as a string
-			[string]$installPromptParameters = ($installPromptParameters.GetEnumerator() | ForEach-Object $ResolveParameters) -join " "
+			#  Format the parameters as a string
+			[String]$installPromptParameters = ($installPromptParameters.GetEnumerator() | ForEach-Object { & $ResolveParameters $_ }) -join " "
 
 			## Initialize the Toast Notification Extension
-			try { Test-ToastNotificationExtension } catch {}
+			try { $null = Test-ToastNotificationExtension } catch {}
 						
 			## Start another powershell instance silently with function parameters from this function
 			Start-Process -FilePath "$($PSHome)\powershell.exe" -ArgumentList "-ExecutionPolicy Bypass -NoProfile -NoLogo -WindowStyle Hidden -Command &{& `'$scriptPath`' -ReferredInstallTitle `'$Title`' -ReferredInstallName `'$installName`' -ReferredLogName `'$logName`' -ShowInstallationPrompt $installPromptParameters -AsyncToolkitLaunch}" -WindowStyle 'Hidden' -ErrorAction SilentlyContinue
@@ -3661,8 +3711,13 @@ Function Show-InstallationPrompt {
 				try {
 					#  Update NotificationData
 					$Dictionary = [System.Collections.Generic.Dictionary[String, String]]::New()
-					if ($configFunctionOptions.ShowAttributionText -and $deployAppScriptFriendlyName) {
-						$AttributionText = $configUIToastNotificationMessages.AttributionTextAutoContinue -f ( <#0#> $RemainingTimeLabel)
+					if ($configFunctionOptions.ShowAttributionText) {
+						if ($deployAppScriptFriendlyName) {
+							$AttributionText = $configUIToastNotificationMessages.AttributionTextAutoContinue -f ( <#0#> $RemainingTimeLabel)
+						}
+						else {
+							$AttributionText = $configUIToastNotificationMessages.InstallationPrompt_AttributionTextDismiss
+						}
 					}
 					else {
 						$AttributionText = " "
@@ -3789,7 +3844,7 @@ Function Show-InstallationPrompt {
 		if (-not (Test-Path -Path $ResourceFolder -PathType Container)) {
 			try {
 				New-Folder -Path $ResourceFolder -ContinueOnError $false
-				Remove-FolderAfterReboot -Path $ResourceFolder -ContinueOnError $true -DisableFunctionLogging
+				$null = Remove-FolderAfterReboot -Path $ResourceFolder -ContinueOnError $true -DisableFunctionLogging
 			}
 			catch {
 				Write-Log -Message "Unable to create Toast Notification resource folder. Falling back to original function...`r`n$(Resolve-Error)" -Severity 3 -Source ${CmdletName}
@@ -4171,7 +4226,7 @@ Function Show-InstallationProgress {
 		if (-not (Test-Path -Path $ResourceFolder -PathType Container)) {
 			try {
 				New-Folder -Path $ResourceFolder -ContinueOnError $false
-				Remove-FolderAfterReboot -Path $ResourceFolder -ContinueOnError $true -DisableFunctionLogging
+				$null = Remove-FolderAfterReboot -Path $ResourceFolder -ContinueOnError $true -DisableFunctionLogging
 			}
 			catch {
 				Write-Log -Message "Unable to create Toast Notification resource folder. Falling back to original function...`r`n$(Resolve-Error)" -Severity 3 -Source ${CmdletName}
@@ -4658,6 +4713,8 @@ Function Show-BlockExecutionToastNotification {
 
 				#  New ToastNotification object
 				$ToastNotificationObject = [Windows.UI.Notifications.ToastNotification]::New($XMLObject)
+				$ToastNotificationObject.Tag = $configToastNotificationGeneralOptions.TaggingVariable
+				$ToastNotificationObject.Group = $ToastNotificationGroup
 			}
 			catch {
 				Write-Log -Message "Unable to create Toast Notification object. Falling back to original function...`r`n$(Resolve-Error)" -Severity 3 -Source ${CmdletName}
@@ -4727,7 +4784,14 @@ Function Show-BlockExecutionToastNotification {
 		$TestToastNotificationShowResult = Test-ToastNotificationExtension
 
 		if ($TestToastNotificationShowResult) {
+			#  Clear Installation Progress Toast Notification since cannot show both at the same time
+			Clear-ToastNotificationHistory -Group "InstallationProgress"
+
 			Invoke-Command -ScriptBlock $ShowToastNotification -NoNewScope
+
+			#  Wait for 25 seconds and dismiss Block Execution Toast Notification if visible
+			Start-Sleep -Seconds 25
+			Clear-ToastNotificationHistory -Group $ToastNotificationGroup
 		}
 		else {
 			#  Fallback to original function

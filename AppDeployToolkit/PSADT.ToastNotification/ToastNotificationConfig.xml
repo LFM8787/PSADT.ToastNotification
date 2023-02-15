@@ -7,8 +7,8 @@
 -->
 	<!--Configuration File Details-->
 	<Config_File>
-		<Config_Version>1.0</Config_Version>
-		<Config_Date>2023/02/10</Config_Date>
+		<Config_Version>1.0.1</Config_Version>
+		<Config_Date>2023/02/15</Config_Date>
 	</Config_File>
 
 	<!--Toast Notification General Options-->
@@ -499,6 +499,8 @@
 		<RestartPrompt_SaveMessage>Please, save all your work and restart your computer within the allotted time.</RestartPrompt_SaveMessage>
 		<RestartPrompt_ButtonRestartLater>Minimize</RestartPrompt_ButtonRestartLater>
 		<RestartPrompt_ButtonRestartNow>Restart Now</RestartPrompt_ButtonRestartNow>
+
+		<InstallationPrompt_AttributionTextDismiss>You can dismiss this message at any time.</InstallationPrompt_AttributionTextDismiss>
 	</UI_Messages_EN>
 
 	<!-- UI Toast Notification Messages - Danish -->
@@ -542,6 +544,8 @@
 		<RestartPrompt_SaveMessage>Please, save all your work and restart your computer within the allotted time.</RestartPrompt_SaveMessage>
 		<RestartPrompt_ButtonRestartLater>Minimize</RestartPrompt_ButtonRestartLater>
 		<RestartPrompt_ButtonRestartNow>Restart Now</RestartPrompt_ButtonRestartNow>
+
+		<InstallationPrompt_AttributionTextDismiss>You can dismiss this message at any time.</InstallationPrompt_AttributionTextDismiss>
 	</UI_Messages_DA>
 
 	<!-- UI Toast Notification Messages - French -->
@@ -585,6 +589,8 @@
 		<RestartPrompt_SaveMessage>Please, save all your work and restart your computer within the allotted time.</RestartPrompt_SaveMessage>
 		<RestartPrompt_ButtonRestartLater>Minimize</RestartPrompt_ButtonRestartLater>
 		<RestartPrompt_ButtonRestartNow>Restart Now</RestartPrompt_ButtonRestartNow>
+
+		<InstallationPrompt_AttributionTextDismiss>You can dismiss this message at any time.</InstallationPrompt_AttributionTextDismiss>
 	</UI_Messages_FR>
 
 	<!-- UI Toast Notification Messages - German -->
@@ -628,6 +634,8 @@
 		<RestartPrompt_SaveMessage>Please, save all your work and restart your computer within the allotted time.</RestartPrompt_SaveMessage>
 		<RestartPrompt_ButtonRestartLater>Minimize</RestartPrompt_ButtonRestartLater>
 		<RestartPrompt_ButtonRestartNow>Restart Now</RestartPrompt_ButtonRestartNow>
+
+		<InstallationPrompt_AttributionTextDismiss>You can dismiss this message at any time.</InstallationPrompt_AttributionTextDismiss>
 	</UI_Messages_DE>
 
 	<!-- UI Toast Notification Messages - Italian -->
@@ -671,6 +679,8 @@
 		<RestartPrompt_SaveMessage>Please, save all your work and restart your computer within the allotted time.</RestartPrompt_SaveMessage>
 		<RestartPrompt_ButtonRestartLater>Minimize</RestartPrompt_ButtonRestartLater>
 		<RestartPrompt_ButtonRestartNow>Restart Now</RestartPrompt_ButtonRestartNow>
+
+		<InstallationPrompt_AttributionTextDismiss>You can dismiss this message at any time.</InstallationPrompt_AttributionTextDismiss>
 	</UI_Messages_IT>
 
 	<!-- UI Toast Notification Messages - Japanese -->
@@ -714,6 +724,8 @@
 		<RestartPrompt_SaveMessage>Please, save all your work and restart your computer within the allotted time.</RestartPrompt_SaveMessage>
 		<RestartPrompt_ButtonRestartLater>Minimize</RestartPrompt_ButtonRestartLater>
 		<RestartPrompt_ButtonRestartNow>Restart Now</RestartPrompt_ButtonRestartNow>
+
+		<InstallationPrompt_AttributionTextDismiss>You can dismiss this message at any time.</InstallationPrompt_AttributionTextDismiss>
 	</UI_Messages_JA>
 
 	<!-- UI Toast Notification Messages - Norwegian (Bokmål) -->
@@ -757,6 +769,8 @@
 		<RestartPrompt_SaveMessage>Please, save all your work and restart your computer within the allotted time.</RestartPrompt_SaveMessage>
 		<RestartPrompt_ButtonRestartLater>Minimize</RestartPrompt_ButtonRestartLater>
 		<RestartPrompt_ButtonRestartNow>Restart Now</RestartPrompt_ButtonRestartNow>
+
+		<InstallationPrompt_AttributionTextDismiss>You can dismiss this message at any time.</InstallationPrompt_AttributionTextDismiss>
 	</UI_Messages_NB>
 
 	<!-- UI Toast Notification Messages - Dutch -->
@@ -800,6 +814,8 @@
 		<RestartPrompt_SaveMessage>Please, save all your work and restart your computer within the allotted time.</RestartPrompt_SaveMessage>
 		<RestartPrompt_ButtonRestartLater>Minimize</RestartPrompt_ButtonRestartLater>
 		<RestartPrompt_ButtonRestartNow>Restart Now</RestartPrompt_ButtonRestartNow>
+
+		<InstallationPrompt_AttributionTextDismiss>You can dismiss this message at any time.</InstallationPrompt_AttributionTextDismiss>
 	</UI_Messages_NL>
 
 	<!-- UI Toast Notification Messages - Polish -->
@@ -843,6 +859,8 @@
 		<RestartPrompt_SaveMessage>Please, save all your work and restart your computer within the allotted time.</RestartPrompt_SaveMessage>
 		<RestartPrompt_ButtonRestartLater>Minimize</RestartPrompt_ButtonRestartLater>
 		<RestartPrompt_ButtonRestartNow>Restart Now</RestartPrompt_ButtonRestartNow>
+
+		<InstallationPrompt_AttributionTextDismiss>You can dismiss this message at any time.</InstallationPrompt_AttributionTextDismiss>
 	</UI_Messages_PL>
 
 	<!-- UI Toast Notification Messages - Portuguese (Portugal) -->
@@ -886,6 +904,8 @@
 		<RestartPrompt_SaveMessage>Please, save all your work and restart your computer within the allotted time.</RestartPrompt_SaveMessage>
 		<RestartPrompt_ButtonRestartLater>Minimize</RestartPrompt_ButtonRestartLater>
 		<RestartPrompt_ButtonRestartNow>Restart Now</RestartPrompt_ButtonRestartNow>
+
+		<InstallationPrompt_AttributionTextDismiss>You can dismiss this message at any time.</InstallationPrompt_AttributionTextDismiss>
 	</UI_Messages_PT>
 
 	<!-- UI Toast Notification Messages - Portuguese (Brazil) -->
@@ -929,6 +949,8 @@
 		<RestartPrompt_SaveMessage>Please, save all your work and restart your computer within the allotted time.</RestartPrompt_SaveMessage>
 		<RestartPrompt_ButtonRestartLater>Minimize</RestartPrompt_ButtonRestartLater>
 		<RestartPrompt_ButtonRestartNow>Restart Now</RestartPrompt_ButtonRestartNow>
+
+		<InstallationPrompt_AttributionTextDismiss>You can dismiss this message at any time.</InstallationPrompt_AttributionTextDismiss>
 	</UI_Messages_PT-BR>
 
 	<!-- UI Toast Notification Messages - Spanish -->
@@ -972,6 +994,8 @@
 		<RestartPrompt_SaveMessage>Por favor, guarde todo su trabajo y reinicie el equipo dentro del tiempo asignado.</RestartPrompt_SaveMessage>
 		<RestartPrompt_ButtonRestartLater>Minimizar</RestartPrompt_ButtonRestartLater>
 		<RestartPrompt_ButtonRestartNow>Reiniciar ahora</RestartPrompt_ButtonRestartNow>
+
+		<InstallationPrompt_AttributionTextDismiss>Puede descartar este mensaje cuando quiera.</InstallationPrompt_AttributionTextDismiss>
 	</UI_Messages_ES>
 
 	<!-- UI Toast Notification Messages - Swedish -->
@@ -1015,6 +1039,8 @@
 		<RestartPrompt_SaveMessage>Please, save all your work and restart your computer within the allotted time.</RestartPrompt_SaveMessage>
 		<RestartPrompt_ButtonRestartLater>Minimize</RestartPrompt_ButtonRestartLater>
 		<RestartPrompt_ButtonRestartNow>Restart Now</RestartPrompt_ButtonRestartNow>
+
+		<InstallationPrompt_AttributionTextDismiss>You can dismiss this message at any time.</InstallationPrompt_AttributionTextDismiss>
 	</UI_Messages_SV>
 
 	<!-- UI Toast Notification Messages - Arabic -->
@@ -1058,6 +1084,8 @@
 		<RestartPrompt_SaveMessage>Please, save all your work and restart your computer within the allotted time.</RestartPrompt_SaveMessage>
 		<RestartPrompt_ButtonRestartLater>Minimize</RestartPrompt_ButtonRestartLater>
 		<RestartPrompt_ButtonRestartNow>Restart Now</RestartPrompt_ButtonRestartNow>
+
+		<InstallationPrompt_AttributionTextDismiss>You can dismiss this message at any time.</InstallationPrompt_AttributionTextDismiss>
 	</UI_Messages_AR>
 
 	<!-- UI Toast Notification Messages - Hebrew -->
@@ -1101,6 +1129,8 @@
 		<RestartPrompt_SaveMessage>Please, save all your work and restart your computer within the allotted time.</RestartPrompt_SaveMessage>
 		<RestartPrompt_ButtonRestartLater>Minimize</RestartPrompt_ButtonRestartLater>
 		<RestartPrompt_ButtonRestartNow>Restart Now</RestartPrompt_ButtonRestartNow>
+
+		<InstallationPrompt_AttributionTextDismiss>You can dismiss this message at any time.</InstallationPrompt_AttributionTextDismiss>
 	</UI_Messages_HE>
 
 	<!-- UI Toast Notification Messages - Korean -->
@@ -1144,6 +1174,8 @@
 		<RestartPrompt_SaveMessage>Please, save all your work and restart your computer within the allotted time.</RestartPrompt_SaveMessage>
 		<RestartPrompt_ButtonRestartLater>Minimize</RestartPrompt_ButtonRestartLater>
 		<RestartPrompt_ButtonRestartNow>Restart Now</RestartPrompt_ButtonRestartNow>
+
+		<InstallationPrompt_AttributionTextDismiss>You can dismiss this message at any time.</InstallationPrompt_AttributionTextDismiss>
 	</UI_Messages_KO>
 
 	<!-- UI Toast Notification Messages - Russian -->
@@ -1187,6 +1219,8 @@
 		<RestartPrompt_SaveMessage>Please, save all your work and restart your computer within the allotted time.</RestartPrompt_SaveMessage>
 		<RestartPrompt_ButtonRestartLater>Minimize</RestartPrompt_ButtonRestartLater>
 		<RestartPrompt_ButtonRestartNow>Restart Now</RestartPrompt_ButtonRestartNow>
+
+		<InstallationPrompt_AttributionTextDismiss>You can dismiss this message at any time.</InstallationPrompt_AttributionTextDismiss>
 	</UI_Messages_RU>
 
 	<!-- UI Toast Notification Messages - Chinese (Simplified) -->
@@ -1230,6 +1264,8 @@
 		<RestartPrompt_SaveMessage>Please, save all your work and restart your computer within the allotted time.</RestartPrompt_SaveMessage>
 		<RestartPrompt_ButtonRestartLater>Minimize</RestartPrompt_ButtonRestartLater>
 		<RestartPrompt_ButtonRestartNow>Restart Now</RestartPrompt_ButtonRestartNow>
+
+		<InstallationPrompt_AttributionTextDismiss>You can dismiss this message at any time.</InstallationPrompt_AttributionTextDismiss>
 	</UI_Messages_ZH-Hans>
 
 	<!-- UI Toast Notification Messages - Chinese (Traditional) -->
@@ -1273,6 +1309,8 @@
 		<RestartPrompt_SaveMessage>Please, save all your work and restart your computer within the allotted time.</RestartPrompt_SaveMessage>
 		<RestartPrompt_ButtonRestartLater>Minimize</RestartPrompt_ButtonRestartLater>
 		<RestartPrompt_ButtonRestartNow>Restart Now</RestartPrompt_ButtonRestartNow>
+
+		<InstallationPrompt_AttributionTextDismiss>You can dismiss this message at any time.</InstallationPrompt_AttributionTextDismiss>
 	</UI_Messages_ZH-Hant>
 
 	<!-- UI Toast Notification Messages - Slovak -->
@@ -1316,6 +1354,8 @@
 		<RestartPrompt_SaveMessage>Please, save all your work and restart your computer within the allotted time.</RestartPrompt_SaveMessage>
 		<RestartPrompt_ButtonRestartLater>Minimize</RestartPrompt_ButtonRestartLater>
 		<RestartPrompt_ButtonRestartNow>Restart Now</RestartPrompt_ButtonRestartNow>
+
+		<InstallationPrompt_AttributionTextDismiss>You can dismiss this message at any time.</InstallationPrompt_AttributionTextDismiss>
 	</UI_Messages_SK>
 
 	<!-- UI Toast Notification Messages - Czech -->
@@ -1359,6 +1399,8 @@
 		<RestartPrompt_SaveMessage>Please, save all your work and restart your computer within the allotted time.</RestartPrompt_SaveMessage>
 		<RestartPrompt_ButtonRestartLater>Minimize</RestartPrompt_ButtonRestartLater>
 		<RestartPrompt_ButtonRestartNow>Restart Now</RestartPrompt_ButtonRestartNow>
+
+		<InstallationPrompt_AttributionTextDismiss>You can dismiss this message at any time.</InstallationPrompt_AttributionTextDismiss>
 	</UI_Messages_CZ>
 
 	<!-- UI Toast Notification Messages - Hungarian-->
@@ -1402,6 +1444,8 @@
 		<RestartPrompt_SaveMessage>Please, save all your work and restart your computer within the allotted time.</RestartPrompt_SaveMessage>
 		<RestartPrompt_ButtonRestartLater>Minimize</RestartPrompt_ButtonRestartLater>
 		<RestartPrompt_ButtonRestartNow>Restart Now</RestartPrompt_ButtonRestartNow>
+
+		<InstallationPrompt_AttributionTextDismiss>You can dismiss this message at any time.</InstallationPrompt_AttributionTextDismiss>
 	</UI_Messages_HU>
 
 </ToastNotification_Config>

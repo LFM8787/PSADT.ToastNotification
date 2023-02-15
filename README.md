@@ -1,8 +1,8 @@
 # PSADT.ToastNotification 1.0
-Extension for PowerShell App Deployment Toolkit that replace all the windows and dialogs with Toast Notifications with a lot of visual and functional improvements.
+Extension for PowerShell App Deployment Toolkit that replaces all the windows and dialogs with Toast Notifications with a lot of visual and functional improvements.
 
 ## Features
-- Administrative rights not needed.
+- Administrator rights not needed.
 - Wraps the original functions, so no script modification needed.
 - SYSTEM raised Toast Notifications can interact with logged in no Administrator user.
 - Ability to interact with the notifications using events or protocols.
@@ -240,7 +240,7 @@ https://user-images.githubusercontent.com/13755139/218119133-639d152d-1b72-4026-
 ### Block-AppExecution
 1. ![](https://img.shields.io/badge/-New!-brightgreen) The function has changed, now it receives a `[PSCustomObject[]]` as input, backward compatibility kept.
 
-2. Changed the logic to detect if user has administrative rights.
+2. Changed the logic to detect if user has administrator rights.
 
 3. Fixed a bug since version `3.8.4` with the task scheduled name.
 
@@ -258,7 +258,7 @@ https://user-images.githubusercontent.com/13755139/218119133-639d152d-1b72-4026-
 
 10. Minor backward compatible changes to the VBS script to capture the blocked application process.
 ### Unblock-AppExecution
-1. Changed the logic to detect if user has administrative rights.
+1. Changed the logic to detect if user has administrator rights.
 
 2. ![](https://img.shields.io/badge/-New!-brightgreen) Tries to remove the Debugger property per process, but if any process remains blocked, the scheduled task will retry hourly.
 
