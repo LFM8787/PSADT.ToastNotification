@@ -64,7 +64,7 @@ if (-not (Test-Path "variable:ResolveParameters")) {
 			[Parameter(Mandatory = $true, Position = 0, ValueFromPipeline = $true, ValueFromPipelineByPropertyName = $true)]
 			[ValidateNotNullOrEmpty()]$Parameter
 		)
-	
+
 		switch ($Parameter.Value.GetType().Name) {
 			'SwitchParameter' {
 				"-$($Parameter.Key):`$$($Parameter.Value.ToString().ToLower())"
@@ -4854,7 +4854,7 @@ Function Block-AppExecution {
 	Process {
 		## Bypass if no Admin rights
 		if (-not $IsAdmin) {
-			Write-Log -Message "Bypassing Function [${CmdletName}], because administrative rights are needed." -Severity 2 -Source ${CmdletName}
+			Write-Log -Message "Bypassing Function [${CmdletName}], because administrator rights are needed." -Severity 2 -Source ${CmdletName}
 			return
 		}
 
@@ -5027,7 +5027,7 @@ Function Unblock-AppExecution {
 	Process {
 		## Bypass if no Admin rights
 		if (-not $IsAdmin) {
-			Write-Log -Message "Bypassing Function [${CmdletName}], because administrative rights are needed." -Source ${CmdletName}
+			Write-Log -Message "Bypassing Function [${CmdletName}], because administrator rights are needed." -Source ${CmdletName}
 			return
 		}
 
