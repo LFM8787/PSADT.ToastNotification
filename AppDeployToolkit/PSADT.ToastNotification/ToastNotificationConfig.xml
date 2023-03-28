@@ -7,8 +7,8 @@
 -->
 	<!--Configuration File Details-->
 	<Config_File>
-		<Config_Version>1.0.1</Config_Version>
-		<Config_Date>2023/02/15</Config_Date>
+		<Config_Version>1.1</Config_Version>
+		<Config_Date>2023/03/28</Config_Date>
 	</Config_File>
 
 	<!--Toast Notification General Options-->
@@ -22,6 +22,8 @@
 			 CAUTION: do not use a known protocol as it can be overwritten in the registry! -->
 		<SubscribeToEvents>True</SubscribeToEvents>
 		<!-- [True/False] - Attempts to register events raised by the Toast Notification object. -->
+		<ShowToastNotificationAsyncTimeout>10</ShowToastNotificationAsyncTimeout>
+		<!-- Timout in seconds to obtain the invoked process Id. -->
 
 		<LimitTimeoutToInstallationUI>True</LimitTimeoutToInstallationUI>
 		<!-- [True/False] - If any wrapped function timeout exceeds the defined in the XML configuration, use that value. -->
@@ -86,47 +88,22 @@
 		<CommandVBS>"$($envWinDir)\System32\WScript.exe" //Nologo //B "$($configToastNotificationGeneralOptions.WorkingDirectory)\$($configToastNotificationGeneralOptions.ProtocolName)\$($configToastNotificationGeneralOptions.ProtocolName).vbs" %1</CommandVBS>
 		<!-- Command executed by the protocol for the VBS script case. -->
 		<ScriptVBS>
-			Set FSO = WScript.CreateObject(&quot;Scripting.FileSystemObject&quot;)
-
-			Function CreateFolderRecursive(FullPath)
-			  arr = split(FullPath, &quot;\&quot;)
-			  path = &quot;&quot;
-			  For Each dir In arr
-				If path &lt;&gt; &quot;&quot; Then path = path &amp; &quot;\&quot;
-				path = path &amp; dir
-				If FSO.FolderExists(path) = False Then FSO.CreateFolder(path)
-			  Next
-			End Function
-
-			ProtocolEnd = InStr(WScript.Arguments(0),&quot;:&quot;)
-			LocalPath = Mid(WScript.Arguments(0), ProtocolEnd + 1)
-			TaggingVariableEnd = InStr(LocalPath,&quot;?&quot;)
-
-			Protocol = Mid(WScript.Arguments(0), 1, ProtocolEnd - 1)
-			TaggingVariable = Mid(LocalPath, 1, TaggingVariableEnd - 1)
-			Result = Mid(LocalPath, TaggingVariableEnd + 1)
-
-			WorkingDirectory = &quot;{0}&quot;
-			Folder = WorkingDirectory &amp; &quot;\&quot; &amp; Protocol &amp; &quot;\&quot; &amp; TaggingVariable
-			File = Folder &amp; &quot;\&quot; &amp; Result &amp; &quot;.tag&quot;
-
-			CreateFolderRecursive Folder
-			FSO.CreateTextFile File,True
-			</ScriptVBS>
+			Argument = Split(WScript.Arguments(0),&quot;:&quot;)
+			Action = Split(Argument(1),&quot;?&quot;,2)
+			ResultVariable = Action(0)
+			ResultValue = Action(1)
+			Set objShell = CreateObject(&quot;WScript.Shell&quot;)
+			Set objEnv = objShell.Environment(&quot;USER&quot;)
+			objEnv(ResultVariable) = ResultValue
+		</ScriptVBS>
 		<ScriptCMD>
 			@SET &quot;Argument=%1&quot;
-			@SET LocalPath=%Argument:*:=%
-			@CALL SET Protocol=%%Argument::%LocalPath%=%%
-			@SET Result=%LocalPath:*?=%
-			@CALL SET TaggingVariable=%%LocalPath:?%Result%=%%
-
-			@SET &quot;WorkingDirectory={0}&quot;
-			@SET &quot;Folder=%WorkingDirectory%\%Protocol%\%TaggingVariable%&quot;
-			@SET &quot;File=%Folder%\%Result%.tag&quot;
-
-			@IF NOT EXIST &quot;%Folder%&quot; ( MD &quot;%Folder%&quot; &amp;&amp; .&gt;&quot;%File%&quot; 2&gt;NUL ) ELSE ( .&gt;&quot;%File%&quot; 2&gt;NUL )
+			@SET Action=%Argument:*:=%
+			@SET ResultValue=%Action:*?=%
+			@CALL SET ResultVariable=%%Action:?%ResultValue%=%%
+			@START &quot;&quot; /MIN SETX.exe %ResultVariable% %ResultValue% &gt;NUL 2&gt;&amp;1
 			@EXIT
-			</ScriptCMD>
+		</ScriptCMD>
 	</Scripts_Options>
 	<!--Toast Notification Scripts-->
 
@@ -239,10 +216,10 @@
 		<ShowAttributionText>True</ShowAttributionText>
 
 		<ImageHeroShow>False</ImageHeroShow>
-		<ImageHeroFileName>DialogBox_Hero.gif</ImageHeroFileName>
+		<ImageHeroFileName>No file</ImageHeroFileName>
 		<ImageAppLogoOverrideShow>True</ImageAppLogoOverrideShow>
-		<ImageAppLogoOverrideFileName>DialogBox_AppLogoOverride.gif</ImageAppLogoOverrideFileName>
-		<ImageAppLogoOverrideCircularCrop>True</ImageAppLogoOverrideCircularCrop>
+		<ImageAppLogoOverrideFileName>No file</ImageAppLogoOverrideFileName>
+		<ImageAppLogoOverrideCircularCrop>False</ImageAppLogoOverrideCircularCrop>
 
 		<!-- <ShowApplicationsIcons>True</ShowApplicationsIcons> -->
 		<!-- <ApplicationsIconsSize>ExtraLarge</ApplicationsIconsSize> -->
@@ -326,16 +303,16 @@
 		<ShowAttributionText>True</ShowAttributionText>
 
 		<ImageHeroShow>True</ImageHeroShow>
-		<ImageHeroFileName>InstallationPrompt_Hero.gif</ImageHeroFileName>
-		<ImageAppLogoOverrideShow>False</ImageAppLogoOverrideShow>
-		<ImageAppLogoOverrideFileName>InstallationPrompt_AppLogoOverride.gif</ImageAppLogoOverrideFileName>
+		<ImageHeroFileName>Mercadona_Hero.png</ImageHeroFileName>
+		<ImageAppLogoOverrideShow>True</ImageAppLogoOverrideShow>
+		<ImageAppLogoOverrideFileName>No file</ImageAppLogoOverrideFileName>
 		<ImageAppLogoOverrideCircularCrop>True</ImageAppLogoOverrideCircularCrop>
 
 		<!-- <ShowApplicationsIcons>True</ShowApplicationsIcons> -->
 		<!-- <ApplicationsIconsSize>ExtraLarge</ApplicationsIconsSize> -->
 		<!-- <CollapseApplicationsIcons>False</CollapseApplicationsIcons> -->
 		<!-- <ShowExtendedApplicationsInformation>True</ShowExtendedApplicationsInformation> -->
-		<ShowDialogIconAsAppLogoOverride>False</ShowDialogIconAsAppLogoOverride>
+		<ShowDialogIconAsAppLogoOverride>True</ShowDialogIconAsAppLogoOverride>
 		<DialogsIconsSize>Large</DialogsIconsSize>
 		<CollapseDialogsIcons>True</CollapseDialogsIcons>
 
@@ -412,9 +389,9 @@
 		<!-- <UpdateInterval>3</UpdateInterval> -->
 		<!-- <ShowAttributionText>True</ShowAttributionText> -->
 
-		<ImageHeroShow>True</ImageHeroShow>
+		<ImageHeroShow>False</ImageHeroShow>
 		<ImageHeroFileName>BlockExecution_Hero.gif</ImageHeroFileName>
-		<ImageAppLogoOverrideShow>False</ImageAppLogoOverrideShow>
+		<ImageAppLogoOverrideShow>True</ImageAppLogoOverrideShow>
 		<ImageAppLogoOverrideFileName>BlockExecution_AppLogoOverride.gif</ImageAppLogoOverrideFileName>
 		<ImageAppLogoOverrideCircularCrop>True</ImageAppLogoOverrideCircularCrop>
 
@@ -423,7 +400,7 @@
 		<CollapseApplicationsIcons>False</CollapseApplicationsIcons>
 		<ShowExtendedApplicationsInformation>True</ShowExtendedApplicationsInformation>
 		<ShowDialogIconAsAppLogoOverride>False</ShowDialogIconAsAppLogoOverride>
-		<DialogsIconsSize>ExtraLarge</DialogsIconsSize>
+		<DialogsIconsSize>Large</DialogsIconsSize>
 		<CollapseDialogsIcons>True</CollapseDialogsIcons>
 
 		<AudioSource>ms-winsoundevent:Notification.Default</AudioSource>

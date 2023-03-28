@@ -5,8 +5,8 @@
 	Replaces all the windows and dialogs with Toast Notifications with a lot of visual and functional improvements.
 .NOTES
 	Author:  Leonardo Franco Maragna
-	Version: 1.0.1
-	Date:    2023/02/15
+	Version: 1.1
+	Date:    2023/03/28
 #>
 [CmdletBinding()]
 Param (
@@ -20,8 +20,8 @@ Param (
 ## Variables: Extension Info
 $ToastNotificationExtName = "ToastNotificationExtension"
 $ToastNotificationExtScriptFriendlyName = "Toast Notification Extension"
-$ToastNotificationExtScriptVersion = "1.0.1"
-$ToastNotificationExtScriptDate = "2023/02/15"
+$ToastNotificationExtScriptVersion = "1.1"
+$ToastNotificationExtScriptDate = "2023/03/28"
 $ToastNotificationExtSubfolder = "PSADT.ToastNotification"
 $ToastNotificationExtConfigFileName = "ToastNotificationConfig.xml"
 
@@ -34,7 +34,6 @@ if (-not $ToastNotificationConfigFile.Exists) { throw "$($ToastNotificationExtSc
 ## Variables: Required Support Files
 [IO.FileInfo]$envPoshWinRTLibraryPath = (Get-ChildItem -Path $dirToastNotificationExtSupportFiles -Recurse -Include "*PoshWinRT*.dll").FullName | Select-Object -First 1
 [IO.FileInfo]$envUser32LibraryPath = Join-Path -Path $envSystem32Directory -ChildPath "user32.dll"
-[IO.FileInfo]$envImageresLibraryPath = Join-Path -Path $envSystem32Directory -ChildPath "imageres.dll"
 
 ## Variables: RegEx Patterns
 #  WildCards used to detect processes
@@ -42,66 +41,41 @@ $ProcessObjectsWildCardRegExPattern = "[\*\?\[\]]"
 #  Regex used to detect filtered apps by path or title
 $ProcessObjectsTitlePathRegExPattern = "(?<=(title:|path:)).+"
 
-## Variables: Strings to extract
-enum DialogButton {
-	OK = 800
-	Cancel = 801
-	Abort = 802
-	Retry = 803
-	Ignore = 804
-	Yes = 805
-	No = 806
-	Close = 807
-	Help = 808
-	TryAgain = 809
-	Continue = 810
+## Variables: Translate Buttons
+[scriptblock]$TranslateButton = {
+	Param (
+		[Parameter(Mandatory = $true, Position = 0, ValueFromPipeline = $true, ValueFromPipelineByPropertyName = $true)]
+		$Parameter
+	)
+
+	switch ($Parameter) {
+		"OK" { [string](Get-StringFromFile -Path $envUser32LibraryPath -StringID 800 -DisableFunctionLogging).Replace("&", "") }
+		"Cancel" { [string](Get-StringFromFile -Path $envUser32LibraryPath -StringID 801 -DisableFunctionLogging).Replace("&", "") }
+		"Abort" { [string](Get-StringFromFile -Path $envUser32LibraryPath -StringID 802 -DisableFunctionLogging).Replace("&", "") }
+		"Retry" { [string](Get-StringFromFile -Path $envUser32LibraryPath -StringID 803 -DisableFunctionLogging).Replace("&", "") }
+		"Ignore" { [string](Get-StringFromFile -Path $envUser32LibraryPath -StringID 804 -DisableFunctionLogging).Replace("&", "") }
+		"Yes" { [string](Get-StringFromFile -Path $envUser32LibraryPath -StringID 805 -DisableFunctionLogging).Replace("&", "") }
+		"No" { [string](Get-StringFromFile -Path $envUser32LibraryPath -StringID 806 -DisableFunctionLogging).Replace("&", "") }
+		"Close" { [string](Get-StringFromFile -Path $envUser32LibraryPath -StringID 807 -DisableFunctionLogging).Replace("&", "") }
+		"Help" { [string](Get-StringFromFile -Path $envUser32LibraryPath -StringID 808 -DisableFunctionLogging).Replace("&", "") }
+		"TryAgain" { [string](Get-StringFromFile -Path $envUser32LibraryPath -StringID 809 -DisableFunctionLogging).Replace("&", "") }
+		"Continue" { [string](Get-StringFromFile -Path $envUser32LibraryPath -StringID 810 -DisableFunctionLogging).Replace("&", "") }
+		default { $Parameter }
+	}
 }
 
 ## Variables: Resolve Parameters. For backward compatibility
 if (-not (Test-Path "variable:ResolveParameters")) {
-	[ScriptBlock]$ResolveParameters = {
+	[scriptblock]$ResolveParameters = {
 		Param (
 			[Parameter(Mandatory = $true, Position = 0, ValueFromPipeline = $true, ValueFromPipelineByPropertyName = $true)]
 			[ValidateNotNullOrEmpty()]$Parameter
 		)
 
-		switch ($Parameter.Value.GetType().Name) {
-			'SwitchParameter' {
-				"-$($Parameter.Key):`$$($Parameter.Value.ToString().ToLower())"
-			}
-			'Boolean' {
-				"-$($Parameter.Key):`$$($Parameter.Value.ToString().ToLower())"
-			}
-			'Int16' {
-				"-$($Parameter.Key):$($Parameter.Value)"
-			}
-			'Int32' {
-				"-$($Parameter.Key):$($Parameter.Value)"
-			}
-			'Int64' {
-				"-$($Parameter.Key):$($Parameter.Value)"
-			}
-			'UInt16' {
-				"-$($Parameter.Key):$($Parameter.Value)"
-			}
-			'UInt32' {
-				"-$($Parameter.Key):$($Parameter.Value)"
-			}
-			'UInt64' {
-				"-$($Parameter.Key):$($Parameter.Value)"
-			}
-			'Single' {
-				"-$($Parameter.Key):$($Parameter.Value)"
-			}
-			'Double' {
-				"-$($Parameter.Key):$($Parameter.Value)"
-			}
-			'Decimal' {
-				"-$($Parameter.Key):$($Parameter.Value)"
-			}
-			default {
-				"-$($Parameter.Key):`'$($Parameter.Value)`'"
-			}
+		switch -regex ($Parameter.Value.GetType().Name) {
+			"^(SwitchParameter|Boolean)$" { "-$($Parameter.Key):`$$($Parameter.Value.ToString().ToLower())" }
+			"^((u){0,1}int(\d)+|single|decimal|double)$" { "-$($Parameter.Key):$($Parameter.Value)" }
+			default { "-$($Parameter.Key):`'$($Parameter.Value)`'" }
 		}
 	}
 }
@@ -119,7 +93,7 @@ $configToastNotificationConfigVersion = [string]$configToastNotificationConfigDe
 
 try {
 	if ([version]$ToastNotificationExtScriptVersion -ne [version]$configToastNotificationConfigVersion) {
-		Write-Log -Message "The $($ToastNotificationExtScriptFriendlyName) version [$([version]$ToastNotificationExtScriptVersion)] is not the same as the $($ToastNotificationExtConfigFileName) version [$([version]$configToastNotificationConfigVersion)]. Problems may occurs." -Severity 2 -Source ${CmdletName}
+		Write-Log -Message "The $($ToastNotificationExtScriptFriendlyName) version [$([version]$ToastNotificationExtScriptVersion)] is not the same as the $($ToastNotificationExtConfigFileName) version [$([version]$configToastNotificationConfigVersion)]. Problems may occurs." -Severity 2 -Source $ToastNotificationExtName
 	}
 }
 catch {}
@@ -131,6 +105,7 @@ $configToastNotificationGeneralOptions = [PSCustomObject]@{
 	TaggingVariable                                   = [string](Remove-InvalidFileNameChars -Name (Invoke-Expression -Command 'try { if (-not [string]::IsNullOrWhiteSpace($ExecutionContext.InvokeCommand.ExpandString($xmlToastNotificationOptions.TaggingVariable))) { $ExecutionContext.InvokeCommand.ExpandString($xmlToastNotificationOptions.TaggingVariable) } else { $installName } } catch { $installName }')) -replace "&| |@|\.", ""
 	ProtocolName                                      = [string](Remove-InvalidFileNameChars -Name (Invoke-Expression -Command 'try { if (-not [string]::IsNullOrWhiteSpace($ExecutionContext.InvokeCommand.ExpandString($xmlToastNotificationOptions.ProtocolName))) { $ExecutionContext.InvokeCommand.ExpandString($xmlToastNotificationOptions.ProtocolName) } else { "psadttoastnotification" } } catch { "psadttoastnotification" }')) -replace "&| |@|\.", ""
 	SubscribeToEvents                                 = Invoke-Expression -Command 'try { [boolean]::Parse([string]($xmlToastNotificationOptions.SubscribeToEvents)) } catch { $true }'
+	ShowToastNotificationAsyncTimeout                 = Invoke-Expression -Command 'try { if ([int32]::Parse([string]($xmlToastNotificationOptions.ShowToastNotificationAsyncTimeout)) -gt 5) { [int32]::Parse([string]($xmlToastNotificationOptions.ShowToastNotificationAsyncTimeout)) } else { 5 } } catch { 5 }'
 
 	LimitTimeoutToInstallationUI                      = Invoke-Expression -Command 'try { [boolean]::Parse([string]($xmlToastNotificationOptions.LimitTimeoutToInstallationUI)) } catch { $true }'
 
@@ -153,26 +128,6 @@ $configToastNotificationGeneralOptions = [PSCustomObject]@{
 
 $configToastNotificationGeneralOptions | Add-Member -MemberType NoteProperty -Name "ResourceFolder" -Value (Join-Path -Path $configToastNotificationGeneralOptions.WorkingDirectory -ChildPath $configToastNotificationGeneralOptions.ProtocolName | Join-Path -ChildPath $configToastNotificationGeneralOptions.TaggingVariable)
 
-if ($configToastNotificationGeneralOptions.SubscribeToEvents) {
-	if ([int]$envPSVersionMajor -lt 7) {
-		if ($null -ne $envPoshWinRTLibraryPath) {
-			try {
-				$envPoshWinRTLibraryBytes = [System.IO.File]::ReadAllBytes($envPoshWinRTLibraryPath)
-				$null = [System.Reflection.Assembly]::Load($envPoshWinRTLibraryBytes)
-				Write-Log -Message 'Successfully loaded object [PoshWinRT.EventWrapper]. Toast Notification events will be wrapped.' -Source $ToastNotificationExtName -DebugMessage
-			}
-			catch {
-				$configToastNotificationGeneralOptions.SubscribeToEvents = $false
-				Write-Log -Message "Unable to load required library to subscribe to Toast Notification Events in Powershell versions below 7.`r`n$(Resolve-Error)" -Severity 3 -Source $ToastNotificationExtName
-			}
-		}
-		else {
-			Write-Log -Message "To subscribe to Toast Notification Events in Powershell versions below 7, the required PoshWinRT.dll library must be located under [..\SupportFiles\PSADT.ToastNotification\] directory." -Severity 2 -Source $ToastNotificationExtName
-			$configToastNotificationGeneralOptions.SubscribeToEvents = $false
-		}
-	}
-}
-
 #  Defines and invokes the scriptblock that contains changes to the button logic
 [scriptblock]$SetSubscribeToEventsProperties = {
 	if ($configToastNotificationGeneralOptions.SubscribeToEvents) {
@@ -181,7 +136,7 @@ if ($configToastNotificationGeneralOptions.SubscribeToEvents) {
 	}
 	else {
 		$configToastNotificationGeneralOptions | Add-Member -MemberType NoteProperty -Name "ActivationType" -Value "protocol" -Force
-		$configToastNotificationGeneralOptions | Add-Member -MemberType NoteProperty -Name "ArgumentsPrefix" -Value ('{0}:{1}?' -f ( <#0#> $configToastNotificationGeneralOptions.ProtocolName), ( <#1#> $configToastNotificationGeneralOptions.TaggingVariable)) -Force
+		$configToastNotificationGeneralOptions | Add-Member -MemberType NoteProperty -Name "ArgumentsPrefix" -Value ('{0}:' -f ( <#0#> $configToastNotificationGeneralOptions.ProtocolName)) -Force
 	}
 }
 Invoke-Command -ScriptBlock $SetSubscribeToEventsProperties -NoNewScope
@@ -325,22 +280,304 @@ foreach ($supportedFunction in $SupportedFunctions) {
 
 #  Defines the original functions to be renamed
 $FunctionsToRename = @()
-$FunctionsToRename += [PSCustomObject]@{ Scope = "Script"; Name = "Show-WelcomePromptOriginal";	Value = $(${Function:Show-WelcomePrompt}.ToString().Replace("http://psappdeploytoolkit.com", "")) }
-$FunctionsToRename += [PSCustomObject]@{ Scope = "Script"; Name = "Show-BalloonTipOriginal";	Value = $(${Function:Show-BalloonTip}.ToString().Replace("http://psappdeploytoolkit.com", "")) }
-$FunctionsToRename += [PSCustomObject]@{ Scope = "Script"; Name = "Show-DialogBoxOriginal"; Value = $(${Function:Show-DialogBox}.ToString().Replace("http://psappdeploytoolkit.com", "")) }
-$FunctionsToRename += [PSCustomObject]@{ Scope = "Script"; Name = "Show-InstallationRestartPromptOriginal"; Value = $(${Function:Show-InstallationRestartPrompt}.ToString().Replace("http://psappdeploytoolkit.com", "")) }
-$FunctionsToRename += [PSCustomObject]@{ Scope = "Script"; Name = "Show-InstallationPromptOriginal"; Value = $(${Function:Show-InstallationPrompt}.ToString().Replace("http://psappdeploytoolkit.com", "")) }
-$FunctionsToRename += [PSCustomObject]@{ Scope = "Script"; Name = "Show-InstallationProgressOriginal"; Value = $(${Function:Show-InstallationProgress}.ToString().Replace("http://psappdeploytoolkit.com", "")) }
-$FunctionsToRename += [PSCustomObject]@{ Scope = "Script"; Name = "Close-InstallationProgressOriginal"; Value = $(${Function:Close-InstallationProgress}.ToString().Replace("http://psappdeploytoolkit.com", "")) }
-$FunctionsToRename += [PSCustomObject]@{ Scope = "Script"; Name = "Exit-ScriptOriginal"; Value = $(${Function:Exit-Script}.ToString().Replace("http://psappdeploytoolkit.com", "")) }
+$FunctionsToRename += [PSCustomObject]@{ Scope = "Script"; Name = "Show-WelcomePromptOriginal";	Value = $(${Function:Show-WelcomePrompt}.ToString() -replace "http(s){0,1}:\/\/psappdeploytoolkit\.com", "") }
+$FunctionsToRename += [PSCustomObject]@{ Scope = "Script"; Name = "Show-BalloonTipOriginal";	Value = $(${Function:Show-BalloonTip}.ToString() -replace "http(s){0,1}:\/\/psappdeploytoolkit\.com", "") }
+$FunctionsToRename += [PSCustomObject]@{ Scope = "Script"; Name = "Show-DialogBoxOriginal"; Value = $(${Function:Show-DialogBox}.ToString() -replace "http(s){0,1}:\/\/psappdeploytoolkit\.com", "") }
+$FunctionsToRename += [PSCustomObject]@{ Scope = "Script"; Name = "Show-InstallationRestartPromptOriginal"; Value = $(${Function:Show-InstallationRestartPrompt}.ToString() -replace "http(s){0,1}:\/\/psappdeploytoolkit\.com", "") }
+$FunctionsToRename += [PSCustomObject]@{ Scope = "Script"; Name = "Show-InstallationPromptOriginal"; Value = $(${Function:Show-InstallationPrompt}.ToString() -replace "http(s){0,1}:\/\/psappdeploytoolkit\.com", "") }
+$FunctionsToRename += [PSCustomObject]@{ Scope = "Script"; Name = "Show-InstallationProgressOriginal"; Value = $(${Function:Show-InstallationProgress}.ToString() -replace "http(s){0,1}:\/\/psappdeploytoolkit\.com", "") }
+$FunctionsToRename += [PSCustomObject]@{ Scope = "Script"; Name = "Close-InstallationProgressOriginal"; Value = $(${Function:Close-InstallationProgress}.ToString() -replace "http(s){0,1}:\/\/psappdeploytoolkit\.com", "") }
 
-## Load required assemblies
-[scriptblock]$LoadRequiredToastNotificationAssemblies = {
-	Write-Log -Message "Loading required assembly: $([Windows.UI.Notifications.ToastNotificationManager, Windows.UI.Notifications, ContentType = WindowsRuntime])" -Source ${CmdletName} -DebugMessage
-	Write-Log -Message "Loading required assembly: $([Windows.UI.Notifications.NotificationData, Windows.UI.Notifications, ContentType = WindowsRuntime])" -Source ${CmdletName} -DebugMessage
-	Write-Log -Message "Loading required assembly: $([Windows.UI.Notifications.ToastNotification, Windows.UI.Notifications, ContentType = WindowsRuntime])" -Source ${CmdletName} -DebugMessage
-	Write-Log -Message "Loading required assembly: $([Windows.Data.Xml.Dom.XmlDocument, Windows.Data.Xml.Dom.XmlDocument, ContentType = WindowsRuntime])" -Source ${CmdletName} -DebugMessage
+## Reusable ScriptBlocks called by functions
+#  Creates an empty Dictionary Data
+[scriptblock]$ToastNotificationNewDictionaryData = {
+	return [PSCustomObject]@{
+		attributionText             = ""
+		progressValue               = ""
+		progressValueStringOverride = ""
+		progressTitle               = ""
+		progressStatus              = ""
+	}
 }
+
+#  Updates the remaining time data
+[scriptblock]$ToastNotificationGetRemainingTime = {
+	Param (
+		[Parameter(Mandatory = $true, Position = 0, ValueFromPipeline = $true, ValueFromPipelineByPropertyName = $true)]
+		[ValidateNotNullOrEmpty()]
+		[timespan]$RemainingTime
+	)
+
+	$RemainingHours = $RemainingTime.Days * 24 + $RemainingTime.Hours
+	$RemainingMinutes = $RemainingTime.Minutes
+	$TotalRemainingMinutes = $RemainingHours * 60 + $RemainingMinutes
+	#if ($null -eq $initialremainingMinutes) { [int]$initialremainingMinutes = ($countdownTime.Subtract($startTime)).TotalMinutes }
+
+	$RemainingTimeLabel = [string]::Empty
+	if ($RemainingHours -gt 1) { $RemainingTimeLabel += "$($RemainingHours) $($configUIToastNotificationMessages.RemainingTimeHours) " }
+	elseif ($RemainingHours -eq 1) { $RemainingTimeLabel += "$($RemainingHours) $($configUIToastNotificationMessages.RemainingTimeHour) " }
+	if ($RemainingMinutes -eq 1) { $RemainingTimeLabel += "$($RemainingMinutes) $($configUIToastNotificationMessages.RemainingTimeMinute)" }
+	else { $RemainingTimeLabel += "$($RemainingMinutes) $($configUIToastNotificationMessages.RemainingTimeMinutes)" }
+
+	return [PSCustomObject]@{
+		RemainingTimeLabel    = $RemainingTimeLabel
+		RemainingHours        = $RemainingHours
+		RemainingMinutes      = $RemainingMinutes
+		TotalRemainingMinutes = $TotalRemainingMinutes
+	}
+}
+
+#  Fallbacks to original function if any problem occur
+[scriptblock]$ToastNotificationFallbackToOriginalFunction = {
+	if ($ToastNotificationGroup -in ("WelcomePrompt", "DialogBox", "InstallationRestartPrompt", "InstallationPrompt")) {
+		## Clear any previous displayed Toast Notification
+		Clear-ToastNotificationHistory -Group $ToastNotificationGroup
+
+		## Remove user environment result variable
+		Remove-ToastNotificationResult -ResultVariable $ResultVariable -IncludeOriginalPID $true
+
+		if ($Result -notin $AllowedResults) {
+			Write-Log -Message "A problem occured with the Toast Notification or function result [$Result] not allowed. Falling back to original function..." -Severity 3 -Source ${CmdletName}
+
+			switch ($ToastNotificationGroup) {
+				"WelcomePrompt" {
+					#  Get the parameters passed to the function for invoking the function asynchronously
+					[hashtable]$welcomePromptParameters = $PSBoundParameters
+
+					#  Modify ProcessDescriptions parameter to suit the original function parameter.
+					if ($welcomePromptParameters.ContainsKey("ProcessDescriptions")) {
+						$welcomePromptParameters.Remove("ProcessDescriptions")
+						[string]$runningProcessDescriptions = ($processDescriptions.ProcessDescription | Sort-Object -Unique) -join ", "
+						$welcomePromptParameters.Add("ProcessDescriptions", $runningProcessDescriptions)
+					}
+
+					$Result = Show-WelcomePromptOriginal @welcomePromptParameters
+				}
+				"DialogBox" { $Result = Show-DialogBoxOriginal @PSBoundParameters }
+				"InstallationRestartPrompt" { $Result = Show-InstallationRestartPromptOriginal @PSBoundParameters }
+				"InstallationPrompt" { $Result = Show-InstallationPromptOriginal @PSBoundParameters }
+			}
+		}
+	}
+	elseif ($ToastNotificationGroup -in ("BalloonTip", "InstallationProgress", "BlockExecution")) {
+		if ($ToastNotificationVisible -ne $true -and -not $OriginalFunctionTriggered) {
+			## Clear any previous displayed Toast Notification
+			Clear-ToastNotificationHistory -Group $ToastNotificationGroup
+
+			Write-Log -Message "A problem occured with the Toast Notification or it's not visible. Falling back to original function..." -Severity 3 -Source ${CmdletName}
+
+			switch ($ToastNotificationGroup) {
+				"BalloonTip" { Show-BalloonTipOriginal @PSBoundParameters }
+				"InstallationProgress" { Show-InstallationProgressOriginal @PSBoundParameters }
+				"BlockExecution" {
+					try {
+						#  Create a mutex and specify a name without acquiring a lock on the mutex
+						[boolean]$showBlockedAppDialogMutexLocked = $false
+						[string]$showBlockedAppDialogMutexName = "Global\PSADT_ShowBlockedAppDialog_Message"
+						[Threading.Mutex]$showBlockedAppDialogMutex = New-Object -TypeName "System.Threading.Mutex" -ArgumentList ($false, $showBlockedAppDialogMutexName)
+						#  Attempt to acquire an exclusive lock on the mutex, attempt will fail after 1 millisecond if unable to acquire exclusive lock
+						if ((Test-IsMutexAvailable -MutexName $showBlockedAppDialogMutexName -MutexWaitTimeInMilliseconds 1) -and ($showBlockedAppDialogMutex.WaitOne(1))) {
+							[boolean]$showBlockedAppDialogMutexLocked = $true
+							Show-InstallationPrompt -Title $installTitle -Message $configBlockExecutionMessage -Icon "Warning" -ButtonRightText "OK"
+						}
+						else {
+							#  If attempt to acquire an exclusive lock on the mutex failed, then exit script as another blocked app dialog window is already open
+							Write-Log -Message "Unable to acquire an exclusive lock on mutex [$showBlockedAppDialogMutexName] because another blocked application dialog window is already open. Exiting script..." -Severity 2 -Source ${CmdletName}
+						}
+					}
+					catch {
+						Write-Log -Message "There was an error in displaying the Installation Prompt.`r`n$(Resolve-Error)" -Severity 3 -Source ${CmdletName}
+						[Environment]::Exit(60005)
+					}
+					finally {
+						if ($showBlockedAppDialogMutexLocked) { $null = $showBlockedAppDialogMutex.ReleaseMutex() }
+						if ($showBlockedAppDialogMutex) { $showBlockedAppDialogMutex.Close() }
+					}
+				}
+			}
+		}
+		$OriginalFunctionTriggered = $true
+	}
+}
+
+#  Shows the Toast Notification
+[scriptblock]$ToastNotificationShowScriptBlock = {
+	[scriptblock]$InvokesToastNotificationAsUser = {
+		## Constructs the Toast Notification template
+		try {
+			#  Constructs the Toast Notification template
+			Invoke-Command -ScriptBlock $DefineToastNotificationTemplate -NoNewScope
+
+			#  Logs the template for debugging
+		($scriptSeparator, $XMLTemplate, $scriptSeparator) | ForEach-Object { Write-Log -Message $_ -Source ${CmdletName} -DebugMessage }
+
+			#  Sets the initial Notification Data if exists
+			if ($SetToastNotificationInitialNotificationData) {
+				Invoke-Command -ScriptBlock $SetToastNotificationInitialNotificationData -NoNewScope
+			}
+		}
+		catch {
+			Write-Log -Message "Unable to create Toast Notification template...`r`n$(Resolve-Error)" -Severity 3 -Source ${CmdletName}
+
+			$XMLTemplate = $null
+		}
+
+		## Invokes Toast Notification As User
+		try {
+			if ([string]::IsNullOrWhiteSpace($XMLTemplate)) {
+				$Result = $null
+			}
+			else {
+				#  Sets the parameters used by the invokation function and calls it
+				$ToastNotificationShowParameters = @{
+					InvokedMethod             = "Show"
+					ResultVariable            = $ResultVariable
+					Group                     = $ToastNotificationGroup
+					AllowedResults            = $AllowedResults
+					DismissedResults          = @("ApplicationHidden", "Click", "TimedOut", "UserCanceled")
+					ToastNotificationTemplate = $XMLTemplate
+					UpdateInterval            = $configFunctionOptions.UpdateInterval
+					DictionaryData            = $InitialDictionaryData
+				}
+
+				$Result = Invoke-ToastNotificationAsUser @ToastNotificationShowParameters
+			}
+		}
+		catch {
+			Write-Log -Message "An error ocurred when trying to invoke Toast Notification as user.`r`n$(Resolve-Error)" -Severity 3 -Source ${CmdletName}
+
+			$Result = $null
+		}
+	}
+
+	## Constructs the Toast Notification and invokes it as user
+	Invoke-Command -ScriptBlock $InvokesToastNotificationAsUser -NoNewScope
+
+	if ($Result -eq "RetryWithProtocol") {
+		#  Retry with protocol insted of event subscription
+		Invoke-Command -ScriptBlock $InvokesToastNotificationAsUser -NoNewScope
+	}
+
+	if ([string]::IsNullOrWhiteSpace($Result)) {
+		#  Fallback to original function
+		Invoke-Command -ScriptBlock $ToastNotificationFallbackToOriginalFunction -NoNewScope
+	}
+	elseif ($Result -match "^\d+$") {
+		$Result = $null
+
+		$ToastNotificationVisible = $true
+
+		if ($UpdateToastNotificationData) {
+			$LastRemainingTimeLabel = ""
+			Invoke-Command -ScriptBlock $UpdateToastNotificationData -NoNewScope
+		}
+	}
+}
+
+#  ScriptBlock that loops until the Toast Notification gives a result
+[scriptblock]$ToastNotificationLoopUntilResult = {
+	do {
+		## Checks if the Toast Notification is visible
+		$ToastNotificationVisible = Test-ToastNotificationVisible -Group $ToastNotificationGroup
+
+		## Get Toast Notification result from environment variable
+		$Result = Get-ToastNotificationResult -AllowedResults $AllowedResults -ResultVariable $ResultVariable
+
+		Write-Log -Message "Toast Notification result before switch [$Result]." -Severity 2 -Source ${CmdletName} -DebugMessage
+
+		switch ($Result) {
+			#  Expected button clicked
+			{ $_ -in $AllowedResults } {
+				$ToastNotificationVisible = $false
+
+				if ($ToastNotificationGroup -eq "InstallationRestartPrompt") {
+					if ($_ -eq "RestartLater") {
+						Write-Log -Message "Toast Notification result [$_], the user has choosen to restart later..." -Source ${CmdletName}
+					}
+					elseif ($_ -eq "RestartNow") {
+						Write-Log -Message "Toast Notification result [$_], the user has choosen to restart now..." -Source ${CmdletName}
+						break
+					}
+				}
+				elseif ($ToastNotificationGroup -eq "InstallationPrompt") {
+					if ($_ -ne "Timeout") {
+						Write-Log -Message "Toast Notification result [$($ExecutionContext.InvokeCommand.ExpandString('$button{0}Text' -f $_))], exiting function..." -Source ${CmdletName}
+					}
+					break
+				}
+				else {
+					Write-Log -Message "Toast Notification action [$_], continuing the script execution..." -Source ${CmdletName}
+					break
+				}
+			}
+
+			"ApplicationHidden" { Write-Log -Message "Toast Notification action [$_], the Toast Notification has been hidden by the application." -Severity 2 -Source ${CmdletName} }
+			"Click" { Write-Log -Message "Toast Notification action [$_], the user has clicked the Toast Notification body." -Severity 2 -Source ${CmdletName} }
+			"TimedOut" { Write-Log -Message "Toast Notification action [$_], the Toast Notification has timed out." -Severity 2 -Source ${CmdletName} }
+			"UserCanceled" {
+				Write-Log -Message "Toast Notification action [$_], the user has closed the Toast Notification." -Severity 2 -Source ${CmdletName}
+
+				if ($ToastNotificationGroup -eq "WelcomePrompt") {
+					if (-not $persistPrompt) {
+						Write-Log -Message "Try using '-PersistPrompt' to avoid this behaviour, exiting function with 'Timeout'." -Severity 2 -Source ${CmdletName}
+						$Result = "Timeout"
+						break
+					}
+				}
+			}
+
+			#  Update Toast Notification remaining time data
+			{ $ToastNotificationVisible } {
+				if ($ToastNotificationGroup -eq "WelcomePrompt") {
+					#  Dynamically update the Toast Notification running applications list
+					if ($configInstallationWelcomePromptDynamicRunningProcessEvaluation) {
+						Invoke-Command -ScriptBlock $ReevaluateRunningProcesses -NoNewScope
+					}
+				}
+
+				#  Update Toast Notification remaining time data
+				Invoke-Command -ScriptBlock $UpdateToastNotificationData -NoNewScope
+			}
+
+			# Re-construct and re-show the Toast Notification
+			{ -not [string]::IsNullOrWhiteSpace($_) -or -not $ToastNotificationVisible } {
+				if ($ToastNotificationGroup -eq "WelcomePrompt") {
+					if ($persistPrompt -or $_ -in ("ApplicationHidden", "Click", "TimedOut")) {
+						Write-Log -Message "The Toast Notification has been closed, it will be shown again." -Severity 2 -Source ${CmdletName}
+						Invoke-Command -ScriptBlock $ToastNotificationShowScriptBlock -NoNewScope
+					}
+				}
+				elseif ($ToastNotificationGroup -eq "InstallationRestartPrompt") {
+					Write-Log -Message "The Toast Notification has been closed, it will be shown again in [$configInstallationRestartPersistInterval] seconds." -Severity 2 -Source ${CmdletName}
+
+					# Wait the default time for reshowing the restart prompt
+					Start-Sleep -Seconds $configInstallationRestartPersistInterval
+
+					Invoke-Command -ScriptBlock $ToastNotificationShowScriptBlock -NoNewScope
+				}
+				elseif ($ToastNotificationGroup -eq "InstallationPrompt") {
+					if ($deployAppScriptFriendlyName) {
+						Write-Log -Message "The Toast Notification has been closed, it will be shown again." -Severity 2 -Source ${CmdletName}
+						Invoke-Command -ScriptBlock $ToastNotificationShowScriptBlock -NoNewScope
+					}
+				}
+				else {
+					Write-Log -Message "The Toast Notification has been closed, it will be shown again." -Severity 2 -Source ${CmdletName}
+					Invoke-Command -ScriptBlock $ToastNotificationShowScriptBlock -NoNewScope
+				}
+
+				break
+			}
+
+			#  Wait a few seconds before reevaluate result
+			{ [string]::IsNullOrWhiteSpace($_) } {
+				Start-Sleep -Seconds $configFunctionOptions.UpdateInterval
+			}
+		}
+	}
+	while ($ToastNotificationVisible)
+}
+#endregion
 
 #endregion
 ##*=============================================
@@ -381,6 +618,7 @@ Function New-DynamicFunction {
 		Part of Toast Notification Extension
 	.LINK
 		https://github.com/LFM8787/PSADT.ToastNotification
+		https://psappdeploytoolkit.com
 		http://psappdeploytoolkit.com
 	#>
 	[CmdletBinding()]
@@ -441,15 +679,15 @@ Function Get-RunningProcesses {
 	.DESCRIPTION
 		Gets the processes that are running from a custom list of process objects and also adds a property called ProcessDescription.
 	.PARAMETER ProcessObjects
-		Custom object containing the process objects to search for. If not supplied, the function just returns $null
+		Custom object containing the process objects to search for. If not supplied, the function just returns $null. ProcessObjects alias for backward compatibility.
 	.PARAMETER DisableFunctionLogging
-		Disables function logging
+		Disables function logging. DisableLogging alias for backward compatibility.
 	.INPUTS
 		None
 		You cannot pipe objects to this function.
 	.OUTPUTS
-		[array]
-		Returns an object with the running processes and their description, path and company.
+		[PSCustomObject[]]
+		Returns an array of objects with the running processes and their description, path and company.
 	.EXAMPLE
 		Get-RunningProcesses -ProcessObjects $ProcessObjects
 	.NOTES
@@ -459,15 +697,17 @@ Function Get-RunningProcesses {
 		Author: Leonardo Franco Maragna
 		Part of Toast Notification Extension
 	.LINK
+		https://github.com/LFM8787/PSADT.ToastNotification
+		https://psappdeploytoolkit.com
 		http://psappdeploytoolkit.com
 	#>
 	[CmdletBinding()]
 	Param (
 		[Parameter(Mandatory = $false)]
-		[Alias('ProcessObjects')]
+		[Alias("ProcessObjects")]
 		[PSCustomObject[]]$SearchObjects,
 		[Parameter(Mandatory = $false)]
-		[Alias('DisableLogging')]
+		[Alias("DisableLogging")]
 		[switch]$DisableFunctionLogging
 	)
 
@@ -513,7 +753,7 @@ Function Get-RunningProcesses {
 										ProcessDescription = $processDescription
 									}
 								}
-    
+
 								Add-Member -InputObject $_ -MemberType NoteProperty -Name "ProcessDescription" -Value $processDescription -Force -PassThru -ErrorAction SilentlyContinue
 								return $true
 							}
@@ -546,7 +786,7 @@ Function Get-RunningProcesses {
 										ProcessDescription = $processDescription
 									}
 								}
-    
+
 								Add-Member -InputObject $_ -MemberType NoteProperty -Name "ProcessDescription" -Value $processDescription -Force -PassThru -ErrorAction SilentlyContinue
 								return $true
 							}
@@ -580,7 +820,7 @@ Function Get-RunningProcesses {
 						}
 						else {
 							if (-not($DisableFunctionLogging)) { Write-Log -Message "The process [$([IO.Path]::GetFileNameWithoutExtension($_.ProcessName))] corresponding to application [$($processDescription)] matchs the pattern [$($SearchObject.ProcessName)] and will be added to the close app collection." -Source ${CmdletName} }
-                        
+
 							#  Adds the new detected process if not already in the list
 							if ($_.ProcessName -notin $SearchObjects.ProcessName) {
 								$Script:ProcessObjects += [PSCustomObject]@{
@@ -588,7 +828,7 @@ Function Get-RunningProcesses {
 									ProcessDescription = $processDescription
 								}
 							}
-    
+
 							Add-Member -InputObject $_ -MemberType NoteProperty -Name "ProcessDescription" -Value $processDescription -Force -PassThru -ErrorAction SilentlyContinue
 							return $true
 						}
@@ -630,47 +870,6 @@ Function Get-RunningProcesses {
 	End {
 		Write-FunctionHeaderOrFooter -CmdletName ${CmdletName} -Footer
 	}
-}
-#endregion
-
-
-#region Function Exit-Script
-Function Exit-Script {
-	<#
-	.SYNOPSIS
-		Wraps the original function but removes the global variables before.
-	.DESCRIPTION
-		Always use when exiting the script to ensure cleanup actions are performed.
-	.PARAMETER ExitCode
-		The exit code to be passed from the script to the original function.
-	.INPUTS
-		None
-		You cannot pipe objects to this function.
-	.OUTPUTS
-		None
-		This function does not generate any output.
-	.EXAMPLE
-		Exit-Script
-	.EXAMPLE
-		Exit-Script -ExitCode 1618
-	.NOTES
-		Author: Leonardo Franco Maragna
-		Part of Toast Notification Extension
-	.LINK
-		http://psappdeploytoolkit.com
-	#>
-	[CmdletBinding()]
-	Param (
-		[Parameter(Mandatory = $false)]
-		[ValidateNotNullorEmpty()]
-		[int32]$ExitCode = 0
-	)
-
-	## Remove Toast Notification Result Variables
-	Remove-Variable -Name "ToastNotification*TestResult" -Scope Global -Force
-
-	##  Call original function
-	Exit-ScriptOriginal @PSBoundParameters
 }
 #endregion
 
@@ -766,75 +965,51 @@ Function Show-InstallationWelcome {
 		Part of Toast Notification Extension
 	.LINK
 		https://github.com/LFM8787/PSADT.ToastNotification
+		https://psappdeploytoolkit.com
 		http://psappdeploytoolkit.com
 	#>
 	[CmdletBinding(DefaultParametersetName = "None")]
 
 	Param (
-		## Specify process names separated by commas. Optionally specify a process description with an equals symbol, e.g. "winword=Microsoft Office Word"
 		[Parameter(Mandatory = $false)]
 		[ValidateNotNullorEmpty()]
 		[string]$CloseApps,
-		## Specify whether to prompt user or force close the applications
-		[Parameter(Mandatory = $false)]
-		[switch]$Silent = $false,
-		## Specify a countdown to display before automatically closing applications where deferral is not allowed or has expired
+		[switch]$Silent,
 		[Parameter(Mandatory = $false)]
 		[ValidateNotNullorEmpty()]
 		[int32]$CloseAppsCountdown = 0,
-		## Specify a countdown to display before automatically closing applications whether or not deferral is allowed
 		[Parameter(Mandatory = $false)]
 		[ValidateNotNullorEmpty()]
 		[int32]$ForceCloseAppsCountdown = 0,
-		## Specify whether to prompt to save working documents when the user chooses to close applications by selecting the "Close Programs" button
-		[Parameter(Mandatory = $false)]
-		[switch]$PromptToSave = $false,
-		## Specify whether to make the prompt persist in the center of the screen every couple of seconds, specified in the AppDeployToolkitConfig.xml.
-		[Parameter(Mandatory = $false)]
-		[switch]$PersistPrompt = $false,
-		## Specify whether to block execution of the processes during installation
-		[Parameter(Mandatory = $false)]
-		[switch]$BlockExecution = $false,
-		## Specify whether to enable the optional defer button on the dialog box
-		[Parameter(Mandatory = $false)]
-		[switch]$AllowDefer = $false,
-		## Specify whether to enable the optional defer button on the dialog box only if an app needs to be closed
-		[Parameter(Mandatory = $false)]
-		[switch]$AllowDeferCloseApps = $false,
-		## Specify the number of times the deferral is allowed
+		[switch]$PromptToSave,
+		[switch]$PersistPrompt,
+		[switch]$BlockExecution,
+		[switch]$AllowDefer,
+		[switch]$AllowDeferCloseApps,
 		[Parameter(Mandatory = $false)]
 		[ValidateNotNullorEmpty()]
 		[int32]$DeferTimes = 0,
-		## Specify the number of days since first run that the deferral is allowed
 		[Parameter(Mandatory = $false)]
 		[ValidateNotNullorEmpty()]
 		[int32]$DeferDays = 0,
-		## Specify the deadline (in format dd/mm/yyyy) for which deferral will expire as an option
 		[Parameter(Mandatory = $false)]
 		[string]$DeferDeadline = "",
-		## Specify whether to check if there is enough disk space for the installation to proceed. If this parameter is specified without the RequiredDiskSpace parameter, the required disk space is calculated automatically based on the size of the script source and associated files.
 		[Parameter(ParameterSetName = "CheckDiskSpaceParameterSet", Mandatory = $true)]
 		[ValidateScript({ $_.IsPresent -eq ($true -or $false) })]
 		[switch]$CheckDiskSpace,
-		## Specify required disk space in MB, used in combination with $CheckDiskSpace.
 		[Parameter(ParameterSetName = "CheckDiskSpaceParameterSet", Mandatory = $false)]
 		[ValidateNotNullorEmpty()]
 		[int32]$RequiredDiskSpace = 0,
-		## Specify whether to minimize other windows when displaying prompt
 		[Parameter(Mandatory = $false)]
 		[ValidateNotNullorEmpty()]
 		[boolean]$MinimizeWindows = $true,
-		## Specifies whether the window is the topmost window
 		[Parameter(Mandatory = $false)]
 		[ValidateNotNullorEmpty()]
 		[boolean]$TopMost = $true,
-		## Specify a countdown to display before automatically proceeding with the installation when a deferral is enabled
 		[Parameter(Mandatory = $false)]
 		[ValidateNotNullorEmpty()]
 		[int32]$ForceCountdown = 0,
-		## Specify whether to display a custom message specified in the XML file. Custom message must be populated for each language section in the XML.
-		[Parameter(Mandatory = $false)]
-		[switch]$CustomText = $false
+		[switch]$CustomText
 	)
 
 	Begin {
@@ -855,12 +1030,12 @@ Function Show-InstallationWelcome {
 
 		## Check disk space requirements if specified
 		if ($CheckDiskSpace) {
-			Write-Log -Message 'Evaluating disk space requirements.' -Source ${CmdletName}
+			Write-Log -Message "Evaluating disk space requirements." -Source ${CmdletName}
 			[Double]$freeDiskSpace = Get-FreeDiskSpace
 			if ($RequiredDiskSpace -eq 0) {
 				try {
 					#  Determine the size of the Files folder
-					$fso = New-Object -ComObject 'Scripting.FileSystemObject' -ErrorAction 'Stop'
+					$fso = New-Object -ComObject "Scripting.FileSystemObject" -ErrorAction Stop
 					$RequiredDiskSpace = [Math]::Round((($fso.GetFolder($scriptParentPath).Size) / 1MB))
 				}
 				catch {
@@ -876,12 +1051,12 @@ Function Show-InstallationWelcome {
 			if ($freeDiskSpace -lt $RequiredDiskSpace) {
 				Write-Log -Message "Failed to meet minimum disk space requirement. Space Required [$RequiredDiskSpace MB], Space Available [$freeDiskSpace MB]." -Severity 3 -Source ${CmdletName}
 				if (-not $Silent) {
-					Show-InstallationPrompt -Message ($configDiskSpaceMessage -f $installTitle, $RequiredDiskSpace, ($freeDiskSpace)) -ButtonRightText ([string](Get-StringFromFile -Path $envUser32LibraryPath -StringID ([int][DialogButton]::OK) -DisableFunctionLogging).Replace("&", "")) -Icon 'Error'
+					Show-InstallationPrompt -Message ($configDiskSpaceMessage -f $installTitle, $RequiredDiskSpace, ($freeDiskSpace)) -ButtonRightText "OK" -Icon Error
 				}
 				Exit-Script -ExitCode $configInstallationUIExitCode
 			}
 			else {
-				Write-Log -Message 'Successfully passed minimum disk space requirement check.' -Source ${CmdletName}
+				Write-Log -Message "Successfully passed minimum disk space requirement check." -Source ${CmdletName}
 			}
 		}
 
@@ -963,8 +1138,8 @@ Function Show-InstallationWelcome {
 
 			#  Get the deferral history from the registry
 			$deferHistory = Get-DeferHistory
-			$deferHistoryTimes = $deferHistory | Select-Object -ExpandProperty 'DeferTimesRemaining' -ErrorAction 'SilentlyContinue'
-			$deferHistoryDeadline = $deferHistory | Select-Object -ExpandProperty 'DeferDeadline' -ErrorAction 'SilentlyContinue'
+			$deferHistoryTimes = $deferHistory | Select-Object -ExpandProperty "DeferTimesRemaining" -ErrorAction SilentlyContinue
+			$deferHistoryDeadline = $deferHistory | Select-Object -ExpandProperty "DeferDeadline" -ErrorAction SilentlyContinue
 
 			#  Reset Switches
 			$checkDeferDays = $false
@@ -985,13 +1160,13 @@ Function Show-InstallationWelcome {
 					$DeferTimes = $DeferTimes - 1
 				}
 				if ($DeferTimes -lt 0) {
-					Write-Log -Message 'Deferral has expired.' -Source ${CmdletName}
+					Write-Log -Message "Deferral has expired." -Source ${CmdletName}
 					$AllowDefer = $false
 				}
 			}
 			else {
-				if (Test-Path -LiteralPath 'variable:deferTimes') {
-					Remove-Variable -Name 'deferTimes'
+				if (Test-Path -LiteralPath "variable:deferTimes") {
+					Remove-Variable -Name "deferTimes"
 				}
 				$DeferTimes = $null
 			}
@@ -1005,14 +1180,14 @@ Function Show-InstallationWelcome {
 				}
 				Write-Log -Message "The user has until [$deferDeadlineUniversal] before deferral expires." -Source ${CmdletName}
 				if ((Get-UniversalDate) -gt $deferDeadlineUniversal) {
-					Write-Log -Message 'Deferral has expired.' -Source ${CmdletName}
+					Write-Log -Message "Deferral has expired." -Source ${CmdletName}
 					$AllowDefer = $false
 				}
 			}
 			if ($checkDeferDeadline -and $allowDefer) {
 				#  Validate Date
 				try {
-					[String]$deferDeadlineUniversal = Get-UniversalDate -DateTime $deferDeadline -ErrorAction 'Stop'
+					[String]$deferDeadlineUniversal = Get-UniversalDate -DateTime $deferDeadline -ErrorAction Stop
 				}
 				catch {
 					Write-Log -Message "Date is not in the correct format for the current culture. Type the date in the current locale format, such as 20/08/2014 (Europe) or 08/20/2014 (United States). If the script is intended for multiple cultures, specify the date in the universal sortable date/time format, e.g. '2013-08-22 11:51:52Z'.`r`n$(Resolve-Error)" -Severity 3 -Source ${CmdletName}
@@ -1020,7 +1195,7 @@ Function Show-InstallationWelcome {
 				}
 				Write-Log -Message "The user has until [$deferDeadlineUniversal] remaining." -Source ${CmdletName}
 				if ((Get-UniversalDate) -gt $deferDeadlineUniversal) {
-					Write-Log -Message 'Deferral has expired.' -Source ${CmdletName}
+					Write-Log -Message "Deferral has expired." -Source ${CmdletName}
 					$AllowDefer = $false
 				}
 			}
@@ -1045,7 +1220,7 @@ Function Show-InstallationWelcome {
 			}
 			Set-Variable -Name "closeAppsCountdownGlobal" -Value $closeAppsCountdown -Scope Script
 
-			while ((Get-RunningProcesses -ProcessObjects $ProcessObjects -OutVariable 'runningProcesses') -or (($promptResult -ne "Defer") -and ($promptResult -ne "Close"))) {
+			while ((Get-RunningProcesses -ProcessObjects $ProcessObjects -OutVariable "runningProcesses") -or (($promptResult -ne "Defer") -and ($promptResult -ne "Close"))) {
 				#  Check if we need to prompt the user to defer, to defer and close apps, or not to prompt them at all
 				if ($allowDefer) {
 					#  If there is deferral and closing apps is allowed but there are no apps to be closed, break the while loop
@@ -1071,7 +1246,7 @@ Function Show-InstallationWelcome {
 					Write-Log -Message "The user selected to continue..." -Source ${CmdletName}
 					Start-Sleep -Seconds 2
 
-					#  break the while loop if there are no processes to close and the user has clicked OK to continue
+					#  Break the while loop if there are no processes to close and the user has clicked OK to continue
 					if (-not $runningProcesses) {
 						break
 					}
@@ -1082,10 +1257,10 @@ Function Show-InstallationWelcome {
 					if (($PromptToSave) -and ($SessionZero -and (-not $IsProcessUserInteractive))) {
 						Write-Log -Message "Specified [-PromptToSave] option will not be available, because current process is running in session zero and is not interactive." -Severity 2 -Source ${CmdletName}
 					}
-					# Update the process list right before closing, in case it changed
+					#  Update the process list right before closing, in case it changed
 					$runningProcesses = Get-RunningProcesses -ProcessObjects ($ProcessObjects | Where-Object { $_.ProcessName -notmatch $ProcessObjectsWildCardRegExPattern } | Where-Object { $_.ProcessName -notmatch $ProcessObjectsTitlePathRegExPattern })
-					
-					# Close running processes
+
+					#  Close running processes
 					foreach ($runningProcess in $runningProcesses) {
 						[psobject[]]$AllOpenWindowsForRunningProcess = Get-WindowTitle -GetAllWindowTitles -DisableFunctionLogging | Where-Object { $_.ParentProcess -eq $runningProcess.ProcessName }
 						#  If the PromptToSave parameter was specified and the process has a window open, then prompt the user to save work if there is work to be saved when closing window
@@ -1133,7 +1308,7 @@ Function Show-InstallationWelcome {
 					}
 
 					if ($runningProcesses = Get-RunningProcesses -ProcessObjects ($ProcessObjects | Where-Object { $_.ProcessName -notmatch $ProcessObjectsWildCardRegExPattern } | Where-Object { $_.ProcessName -notmatch $ProcessObjectsTitlePathRegExPattern }) -DisableLogging) {
-						# Apps are still running, give them 2s to close. If they are still running, the Welcome Window will be displayed again
+						#  Apps are still running, give them 2s to close. If they are still running, the Welcome Window will be displayed again
 						Write-Log -Message "Sleeping for 2 seconds because the processes are still not closed..." -Source ${CmdletName}
 						Start-Sleep -Seconds 2
 					}
@@ -1187,26 +1362,26 @@ Function Show-InstallationWelcome {
 		}
 
 		## Force nsd.exe to stop if Notes is one of the required applications to close
-		if (($ProcessObjects | Select-Object -ExpandProperty 'ProcessName') -contains 'notes') {
+		if (($ProcessObjects | Select-Object -ExpandProperty "ProcessName") -contains "notes") {
 			## Get the path where Notes is installed
-			[String]$notesPath = Get-Item -LiteralPath $regKeyLotusNotes -ErrorAction 'SilentlyContinue' | Get-ItemProperty | Select-Object -ExpandProperty 'Path'
+			[String]$notesPath = Get-Item -LiteralPath $regKeyLotusNotes -ErrorAction SilentlyContinue | Get-ItemProperty | Select-Object -ExpandProperty "Path"
 
 			## Ensure we aren't running as a Local System Account and Notes install directory was found
 			if ((-not $IsLocalSystemAccount) -and ($notesPath)) {
 				#  Get a list of all the executables in the Notes folder
-				[string[]]$notesPathExes = Get-ChildItem -LiteralPath $notesPath -Filter '*.exe' -Recurse | Select-Object -ExpandProperty 'BaseName' | Sort-Object
+				[string[]]$notesPathExes = Get-ChildItem -LiteralPath $notesPath -Filter "*.exe" -Recurse | Select-Object -ExpandProperty "BaseName" | Sort-Object
 				## Check for running Notes executables and run NSD if any are found
 				$notesPathExes | ForEach-Object {
-					if ((Get-Process | Select-Object -ExpandProperty 'Name') -contains $_) {
-						[String]$notesNSDExecutable = Join-Path -Path $notesPath -ChildPath 'NSD.exe'
+					if ((Get-Process | Select-Object -ExpandProperty "Name") -contains $_) {
+						[String]$notesNSDExecutable = Join-Path -Path $notesPath -ChildPath "NSD.exe"
 						try {
-							if (Test-Path -LiteralPath $notesNSDExecutable -PathType 'Leaf' -ErrorAction 'Stop') {
+							if (Test-Path -LiteralPath $notesNSDExecutable -PathType Leaf -ErrorAction Stop) {
 								Write-Log -Message "Executing [$notesNSDExecutable] with the -kill argument..." -Source ${CmdletName}
-								[Diagnostics.Process]$notesNSDProcess = Start-Process -FilePath $notesNSDExecutable -ArgumentList '-kill' -WindowStyle 'Hidden' -PassThru -ErrorAction 'SilentlyContinue'
+								[Diagnostics.Process]$notesNSDProcess = Start-Process -FilePath $notesNSDExecutable -ArgumentList "-kill" -WindowStyle "Hidden" -PassThru -ErrorAction SilentlyContinue
 
 								if (-not $notesNSDProcess.WaitForExit(10000)) {
 									Write-Log -Message "[$notesNSDExecutable] did not end in a timely manner. Force terminate process." -Source ${CmdletName}
-									Stop-Process -Name 'NSD' -Force -ErrorAction 'SilentlyContinue'
+									Stop-Process -Name "NSD" -Force -ErrorAction SilentlyContinue
 								}
 							}
 						}
@@ -1217,14 +1392,14 @@ Function Show-InstallationWelcome {
 						Write-Log -Message "[$notesNSDExecutable] returned exit code [$($notesNSDProcess.ExitCode)]." -Source ${CmdletName}
 
 						#  Force NSD process to stop in case the previous command was not successful
-						Stop-Process -Name 'NSD' -Force -ErrorAction 'SilentlyContinue'
+						Stop-Process -Name "NSD" -Force -ErrorAction SilentlyContinue
 					}
 				}
 			}
 
 			#  Strip all Notes processes from the process list except notes.exe, because the other notes processes (e.g. notes2.exe) may be invoked by the Notes installation, so we don't want to block their execution.
 			if ($notesPathExes) {
-				[Array]$processesIgnoringNotesExceptions = Compare-Object -ReferenceObject ($ProcessObjects | Select-Object -ExpandProperty 'ProcessName' | Sort-Object) -DifferenceObject $notesPathExes -IncludeEqual | Where-Object { ($_.SideIndicator -eq '<=') -or ($_.InputObject -eq 'notes') } | Select-Object -ExpandProperty 'InputObject'
+				[Array]$processesIgnoringNotesExceptions = Compare-Object -ReferenceObject ($ProcessObjects | Select-Object -ExpandProperty "ProcessName" | Sort-Object) -DifferenceObject $notesPathExes -IncludeEqual | Where-Object { ($_.SideIndicator -eq "<=") -or ($_.InputObject -eq "notes") } | Select-Object -ExpandProperty "InputObject"
 				[Array]$ProcessObjects = $ProcessObjects | Where-Object { $processesIgnoringNotesExceptions -contains $_.ProcessName }
 			}
 		}
@@ -1302,6 +1477,7 @@ Function Show-WelcomePrompt {
 		Part of Toast Notification Extension
 	.LINK
 		https://github.com/LFM8787/PSADT.ToastNotification
+		https://psappdeploytoolkit.com
 		http://psappdeploytoolkit.com
 	#>
 	[CmdletBinding()]
@@ -1316,8 +1492,7 @@ Function Show-WelcomePrompt {
 		[Parameter(Mandatory = $false)]
 		[ValidateNotNullorEmpty()]
 		[boolean]$PersistPrompt = $false,
-		[Parameter(Mandatory = $false)]
-		[switch]$AllowDefer = $false,
+		[switch]$AllowDefer,
 		[Parameter(Mandatory = $false)]
 		[string]$DeferTimes,
 		[Parameter(Mandatory = $false)]
@@ -1331,8 +1506,7 @@ Function Show-WelcomePrompt {
 		[Parameter(Mandatory = $false)]
 		[ValidateNotNullorEmpty()]
 		[int32]$ForceCountdown = 0,
-		[Parameter(Mandatory = $false)]
-		[switch]$CustomText = $false
+		[switch]$CustomText
 	)
 
 	Begin {
@@ -1340,19 +1514,16 @@ Function Show-WelcomePrompt {
 		[string]${CmdletName} = $PSCmdlet.MyInvocation.MyCommand.Name
 		Write-FunctionHeaderOrFooter -CmdletName ${CmdletName} -CmdletBoundParameters $PSBoundParameters -Header
 
-		## Load required assemblies
-		Invoke-Command -ScriptBlock $LoadRequiredToastNotificationAssemblies -NoNewScope
-
 		## Define function variables
 		$ToastNotificationGroup = "WelcomePrompt"
 		$AllowedResults = @("Defer", "Close", "Continue", "Timeout")
 		$configFunctionOptions = Get-Variable -Name "configToastNotification$($ToastNotificationGroup)Options" -ValueOnly
-		$functionResultVariable = "ToastNotification$($ToastNotificationGroup)Result"
+		$ResultVariable = "$($ToastNotificationGroup)_$([System.Diagnostics.Process]::GetCurrentProcess().Id)_Result"
 		$ResourceFolder = $configToastNotificationGeneralOptions.ResourceFolder
 	}
 	Process {
-		## Reset times
-		[datetime]$startTime = Get-Date
+		## Initial variables definition
+		[datetime]$StartTime = Get-Date
 		[boolean]$showCloseApps = $false
 
 		## Check if the timeout exceeds the maximum allowed
@@ -1410,12 +1581,15 @@ Function Show-WelcomePrompt {
 			$CloseAppsCountdown = $configInstallationUITimeout
 		}
 
+		## Toast Notification variable standarization
+		$Timeout = $CloseAppsCountdown
+
 
 		#region Function reusable ScriptBlocks
-		## Creates the Toast Notification template
-		[scriptblock]$ConstructToastNotificationTemplate = {
+		## Defines the Toast Notification template
+		[scriptblock]$DefineToastNotificationTemplate = {
 			$XMLTemplate = @()
-			$XMLTemplate += '<toast activationType="{0}" launch="{1}Click" scenario="alarm">' -f ( <#0#> $configToastNotificationGeneralOptions.ActivationType), ( <#1#> [Security.SecurityElement]::Escape($configToastNotificationGeneralOptions.ArgumentsPrefix))
+			$XMLTemplate += '<toast activationType="{0}" launch="{1}{2}?Click" scenario="alarm">' -f ( <#0#> $configToastNotificationGeneralOptions.ActivationType), ( <#1#> $configToastNotificationGeneralOptions.ArgumentsPrefix), ( <#2#> $ResultVariable)
 			$XMLTemplate += '<visual baseUri="file://{0}\">' -f ( <#0#> [Security.SecurityElement]::Escape($ResourceFolder))
 			$XMLTemplate += '<binding template="ToastGeneric">'
 
@@ -1605,12 +1779,12 @@ Function Show-WelcomePrompt {
 
 					$XMLTemplate += '<text hint-style="Base" hint-wrap="true" hint-maxLines="2">{0}</text>' -f ( <#0#> [Security.SecurityElement]::Escape($MoreProcessesCount))
 					$XMLTemplate += '<text hint-wrap="true" hint-maxLines="4">{0}</text>' -f ( <#0#> [Security.SecurityElement]::Escape($MoreProcessesDescriptions.Substring(0, $(if ($MoreProcessesDescriptions.Length -gt 256) { 256 } else { $MoreProcessesDescriptions.Length }))))
-				
+
 					#  Show Extended Applications Information
 					if ($configFunctionOptions.ShowExtendedApplicationsInformation) {
 						$XMLTemplate += '<text hint-style="CaptionSubtle" hint-wrap="true" hint-maxLines="4">{0}</text>' -f ( <#0#> [Security.SecurityElement]::Escape($MoreProcessesProcessNames.Substring(0, $(if ($MoreProcessesProcessNames.Length -gt 256) { 256 } else { $MoreProcessesProcessNames.Length }))))
 					}
-				
+
 					$XMLTemplate += '</subgroup>'
 					$XMLTemplate += '</group>'
 				}
@@ -1636,14 +1810,14 @@ Function Show-WelcomePrompt {
 			#  Action buttons section
 			$XMLTemplate += '<actions>'
 			if ($showDefer) {
-				$XMLTemplate += '<action content="{0}" activationType="{1}" arguments="{2}Defer"/>' -f ( <#0#> [Security.SecurityElement]::Escape($configUIToastNotificationMessages.WelcomePrompt_ButtonDefer)), ( <#1#> $configToastNotificationGeneralOptions.ActivationType), ( <#2#> [Security.SecurityElement]::Escape($configToastNotificationGeneralOptions.ArgumentsPrefix))
+				$XMLTemplate += '<action content="{0}" activationType="{1}" arguments="{2}{3}?Defer"/>' -f ( <#0#> [Security.SecurityElement]::Escape($configUIToastNotificationMessages.WelcomePrompt_ButtonDefer)), ( <#1#> $configToastNotificationGeneralOptions.ActivationType), ( <#2#> $configToastNotificationGeneralOptions.ArgumentsPrefix), ( <#3#> $ResultVariable)
 			}
 			if ($showCloseApps) {
 				$ButtonClose = $null
 				if ($ProcessDescriptions.Count -gt 1) { $ButtonClose = $configUIToastNotificationMessages.WelcomePrompt_ButtonClosePlural }
 				else { $ButtonClose = $configUIToastNotificationMessages.WelcomePrompt_ButtonCloseSingular }
 
-				$XMLTemplate += '<action content="{0}" activationType="{1}" arguments="{2}Close"/>' -f ( <#0#> [Security.SecurityElement]::Escape($ButtonClose)), ( <#1#> $configToastNotificationGeneralOptions.ActivationType), ( <#2#> [Security.SecurityElement]::Escape($configToastNotificationGeneralOptions.ArgumentsPrefix))
+				$XMLTemplate += '<action content="{0}" activationType="{1}" arguments="{2}{3}?Close"/>' -f ( <#0#> [Security.SecurityElement]::Escape($ButtonClose)), ( <#1#> $configToastNotificationGeneralOptions.ActivationType), ( <#2#> $configToastNotificationGeneralOptions.ArgumentsPrefix), ( <#3#> $ResultVariable)
 			}
 			else {
 				#  Replace Continue button with deployment type
@@ -1652,12 +1826,12 @@ Function Show-WelcomePrompt {
 						"Install" { $configUIToastNotificationMessages.DeploymentTypeInstall }
 						"Uninstall" { $configUIToastNotificationMessages.DeploymentTypeUninstall }
 						"Repair" { $configUIToastNotificationMessages.DeploymentTypeRepair }
-						Default { $configUIToastNotificationMessages.WelcomePrompt_ButtonContinue }
+						default { $configUIToastNotificationMessages.WelcomePrompt_ButtonContinue }
 					}
-					$XMLTemplate += '<action content="{0}" activationType="{1}" arguments="{2}Continue"/>' -f ( <#0#> [Security.SecurityElement]::Escape($ContinueButton)), ( <#1#> $configToastNotificationGeneralOptions.ActivationType), ( <#2#> [Security.SecurityElement]::Escape($configToastNotificationGeneralOptions.ArgumentsPrefix))
+					$XMLTemplate += '<action content="{0}" activationType="{1}" arguments="{2}{3}?Continue"/>' -f ( <#0#> [Security.SecurityElement]::Escape($ContinueButton)), ( <#1#> $configToastNotificationGeneralOptions.ActivationType), ( <#2#> $configToastNotificationGeneralOptions.ArgumentsPrefix), ( <#3#> $ResultVariable)
 				}
 				else {
-					$XMLTemplate += '<action content="{0}" activationType="{1}" arguments="{2}Continue"/>' -f ( <#0#> [Security.SecurityElement]::Escape($configUIToastNotificationMessages.WelcomePrompt_ButtonContinue)), ( <#1#> $configToastNotificationGeneralOptions.ActivationType), ( <#2#> [Security.SecurityElement]::Escape($configToastNotificationGeneralOptions.ArgumentsPrefix))
+					$XMLTemplate += '<action content="{0}" activationType="{1}" arguments="{2}{3}?Continue"/>' -f ( <#0#> [Security.SecurityElement]::Escape($configUIToastNotificationMessages.WelcomePrompt_ButtonContinue)), ( <#1#> $configToastNotificationGeneralOptions.ActivationType), ( <#2#> $configToastNotificationGeneralOptions.ArgumentsPrefix), ( <#3#> $ResultVariable)
 				}
 			}
 			$XMLTemplate += '</actions>'
@@ -1668,177 +1842,86 @@ Function Show-WelcomePrompt {
 			$XMLTemplate += '</toast>'
 		}
 
-		## Creates the Toast Notification object using the Toast Notification template
-		[scriptblock]$ConstructToastNotificationObject = {
-			try {
-				#  Construct Toast Notification template
-				Invoke-Command -ScriptBlock $ConstructToastNotificationTemplate -NoNewScope
+		## Sets the Toast Notification initial Notification Data
+		[scriptblock]$SetToastNotificationInitialNotificationData = {
+			#  Initial Notification Data
+			$InitialDictionaryData = Invoke-Command -ScriptBlock $ToastNotificationNewDictionaryData
 
-				#  Save template for debugging
-				($scriptSeparator, $XMLTemplate, $scriptSeparator) | ForEach-Object { Write-Log -Message $_ -Source ${CmdletName} -DebugMessage }
+			if ($showCountdown) {
+				$InitialDictionaryData.progressValue = "indeterminate"
+				$InitialDictionaryData.progressValueStringOverride = " "
+				$InitialDictionaryData.progressStatus = [Security.SecurityElement]::Escape($configUIToastNotificationMessages.WelcomePrompt_ProgressBarStatus)
 
-				#  Trying to parse the ToastNotification template as XML
-				$XMLObject = New-Object Windows.Data.Xml.Dom.XmlDocument
-				$XMLObject.LoadXml($XMLTemplate)
-
-				#  Initial NotificationData
-				$Dictionary = [System.Collections.Generic.Dictionary[String, String]]::New()
-				if ($showCountdown) {
-					$Dictionary.Add("progressValue", "indeterminate")
-					$Dictionary.Add("progressValueStringOverride", " ")
-					if ($ProcessDescriptions.Count -gt 1) {
-						$Dictionary.Add("progressTitle", $configUIToastNotificationMessages.WelcomePrompt_ProgressBarTitlePlural)
-					}
-					else {
-						$Dictionary.Add("progressTitle", $configUIToastNotificationMessages.WelcomePrompt_ProgressBarTitleSingular)
-					}
-					$Dictionary.Add("progressStatus", $configUIToastNotificationMessages.WelcomePrompt_ProgressBarStatus)
+				if ($ProcessDescriptions.Count -gt 1) {
+					$InitialDictionaryData.progressTitle = [Security.SecurityElement]::Escape($configUIToastNotificationMessages.WelcomePrompt_ProgressBarTitlePlural)
 				}
-				elseif ($configFunctionOptions.ShowAttributionText) { $Dictionary.Add("attributionText", " ") }
-
-				#  New ToastNotification object
-				$ToastNotificationObject = [Windows.UI.Notifications.ToastNotification]::New($XMLObject)
-				$ToastNotificationObject.Tag = $configToastNotificationGeneralOptions.TaggingVariable
-				$ToastNotificationObject.Group = $ToastNotificationGroup
-				$ToastNotificationObject.Data = [Windows.UI.Notifications.NotificationData]::New($Dictionary)
-				$ToastNotificationObject.Data.SequenceNumber = 1
-				$InitialNotificationData = $true
-			}
-			catch {
-				Write-Log -Message "Unable to create Toast Notification object. Falling back to original function...`r`n$(Resolve-Error)" -Severity 3 -Source ${CmdletName}
-
-				#  Fallback to original function
-				$CreateToastNotifier = $false
-			}
-		}
-
-		## Shows the Toast Notification
-		[scriptblock]$ShowToastNotification = {
-			#  Reset global result variable and remove any result file
-			$CreateToastNotifier = $true
-			Set-Variable -Name $functionResultVariable -Scope Global -Value ([string]::Empty) -Force
-			Remove-ToastNotificationResult -ResourceFolder $ResourceFolder
-
-			#  Clear any previous registered Toast Notification Events jobs
-			if ($configToastNotificationGeneralOptions.SubscribeToEvents) {
-				Unregister-ToastNotificationEvents -ResultVariable $functionResultVariable
-			}
-
-			#  Clear any previous displayed Toast Notification
-			Clear-ToastNotificationHistory
-
-			#  Generate Toast Notification object
-			Invoke-Command -ScriptBlock $ConstructToastNotificationObject -NoNewScope
-
-			#  Register Toast Notification Events
-			if ($null -ne $ToastNotificationObject) {
-				if ($configToastNotificationGeneralOptions.SubscribeToEvents) {
-					$RegisterToastNotificationEventsResult = Register-ToastNotificationEvents -ToastNotificationObject $ToastNotificationObject -ResultVariable $functionResultVariable
-					if ($RegisterToastNotificationEventsResult -eq $false) {
-						$TestToastNotificationShowResult = Test-ToastNotificationExtension -CheckProtocol
-						if ($TestToastNotificationShowResult -eq $false) {
-							$CreateToastNotifier = $false
-						}
-						else {
-							#  Regenerate Toast Notification object using protocol
-							Invoke-Command -ScriptBlock $ConstructToastNotificationObject -NoNewScope
-						}
-					}
+				else {
+					$InitialDictionaryData.progressTitle = [Security.SecurityElement]::Escape($configUIToastNotificationMessages.WelcomePrompt_ProgressBarTitleSingular)
 				}
 			}
-			else {
-				$CreateToastNotifier = $false
-			}
-
-			#  Attempt to show the new Toast Notification
-			if ($CreateToastNotifier) {
-				try {
-					$null = [Windows.UI.Notifications.ToastNotificationManager]::CreateToastNotifier($configToastNotificationAppId.AppId).Show($ToastNotificationObject)
-					if ($?) {
-						Invoke-Command -ScriptBlock $UpdateToastNotificationData -NoNewScope
-					}
-				}
-				catch {
-					Write-Log -Message "Unable to show Toast Notification. Falling back to original function...`r`n$(Resolve-Error)" -Severity 3 -Source ${CmdletName}
-
-					#  Fallback to original function
-					Invoke-Command -ScriptBlock $FallbackToOriginalFunction -NoNewScope
-				}
-			}
-			else {
-				#  Fallback to original function
-				Invoke-Command -ScriptBlock $FallbackToOriginalFunction -NoNewScope
+			elseif ($configFunctionOptions.ShowAttributionText) {
+				$InitialDictionaryData.attributionText = " "
 			}
 		}
 
 		## Update Toast Notification if necessary
 		[scriptblock]$UpdateToastNotificationData = {
-			#  Check if there is remaining time
-			Invoke-Command -ScriptBlock $TestRemainingTime -NoNewScope
-
-			if ($InitialNotificationData -or ($LastRemainingTimeLabel -ne $RemainingTimeLabel)) {
-				$InitialNotificationData = $false
-				try {
-					#  Update NotificationData
-					$Dictionary = [System.Collections.Generic.Dictionary[String, String]]::New()
-					if ($showCountdown) {
-						$Dictionary.Add("progressValue", (($initialremainingMinutes - $totalremainingMinutes) / $initialremainingMinutes))
-						$Dictionary.Add("progressValueStringOverride", $RemainingTimeLabel)
-					}
-					elseif ($configFunctionOptions.ShowAttributionText) {
-						if ($showDefer) { $Dictionary.Add("attributionText", ($configUIToastNotificationMessages.WelcomePrompt_AttributionTextAutoDeferral -f ( <#0#> $deploymentTypeName.ToLower()), ( <#1#> $RemainingTimeLabel))) }
-						else { $Dictionary.Add("attributionText", ($configUIToastNotificationMessages.AttributionTextAutoContinue -f ( <#0#> $RemainingTimeLabel))) }
-					}
-
-					#  Update ToastNotification object
-					$NotificationData = [Windows.UI.Notifications.NotificationData]::New($Dictionary)
-					$NotificationData.SequenceNumber = 2
-					$null = [Windows.UI.Notifications.ToastNotificationManager]::CreateToastNotifier($configToastNotificationAppId.AppId).Update($NotificationData, $configToastNotificationGeneralOptions.TaggingVariable, $ToastNotificationGroup)
-				}
-				catch {
-					Write-Log -Message "Unable to update Toast Notification.`r`n$(Resolve-Error)" -Severity 3 -Source ${CmdletName}
-				}
-			}
-			$LastRemainingTimeLabel = $RemainingTimeLabel
-		}
-
-		## Check remaining time
-		[scriptblock]$TestRemainingTime = {
 			#  Get the time information
-			[datetime]$currentTime = Get-Date
-			[datetime]$countdownTime = $startTime.AddSeconds($CloseAppsCountdown)
-			[timespan]$remainingTime = $countdownTime.Subtract($currentTime)
-			Set-Variable -Name "closeAppsCountdownGlobal" -Value $remainingTime.TotalSeconds -Scope Script
+			[datetime]$CurrentTime = Get-Date
+			[datetime]$CountdownTime = $StartTime.AddSeconds($Timeout)
 
 			#  If the countdown is complete, close the application(s) or continue
-			if ($countdownTime -le $currentTime) {
+			if ($CountdownTime -le $CurrentTime) {
 				if ($showCountdown) {
 					if ($forceCountdown -eq $true) {
-						Write-Log -Message "Toast Notification result [Continue], countdown timer has elapsed. Force continue." -Severity 2 -Source ${CmdletName}
-						Set-Variable -Name $functionResultVariable -Scope Global -Value "Continue" -Force
+						$Result = "Continue"
+						Write-Log -Message "Toast Notification result [$Result], countdown timer has elapsed. Force continue." -Severity 2 -Source ${CmdletName}
 					}
 					else {
-						Write-Log -Message "Toast Notification result [Close], close application(s) countdown timer has elapsed. Force closing application(s)." -Severity 2 -Source ${CmdletName}
-						Set-Variable -Name $functionResultVariable -Scope Global -Value "Close" -Force
+						$Result = "Close"
+						Write-Log -Message "Toast Notification result [$Result], close application(s) countdown timer has elapsed. Force closing application(s)." -Severity 2 -Source ${CmdletName}
 					}
 				}
 				else {
-					Write-Log -Message "Toast Notification result [Timeout], exiting function." -Severity 2 -Source ${CmdletName}
-					Set-Variable -Name $functionResultVariable -Scope Global -Value "Timeout" -Force
+					$Result = "Timeout"
+					Write-Log -Message "Toast Notification result [$Result], exiting function." -Severity 2 -Source ${CmdletName}
 				}
 			}
 			else {
-				#  Update the remaining time string
-				$remainingHours = $remainingTime.Days * 24 + $remainingTime.Hours
-				$remainingMinutes = $remainingTime.Minutes
-				$totalremainingMinutes = $remainingHours * 60 + $remainingMinutes
-				if ($null -eq $initialremainingMinutes) { [int]$initialremainingMinutes = ($countdownTime.Subtract($startTime)).TotalMinutes }
+				#  Update the remaining time data
+				[timespan]$RemainingTime = $CountdownTime.Subtract($CurrentTime)
+				Set-Variable -Name "closeAppsCountdownGlobal" -Value $RemainingTime.TotalSeconds -Scope Script
 
-				$RemainingTimeLabel = [string]::Empty
-				if ($remainingHours -gt 1) { $RemainingTimeLabel += "$($remainingHours) $($configUIToastNotificationMessages.RemainingTimeHours) " }
-				elseif ($remainingHours -eq 1) { $RemainingTimeLabel += "$($remainingHours) $($configUIToastNotificationMessages.RemainingTimeHour) " }
-				if ($remainingMinutes -eq 1) { $RemainingTimeLabel += "$($remainingMinutes) $($configUIToastNotificationMessages.RemainingTimeMinute)" }
-				else { $RemainingTimeLabel += "$($remainingMinutes) $($configUIToastNotificationMessages.RemainingTimeMinutes)" }
+				$RemainingTimeData = Invoke-Command -ScriptBlock $ToastNotificationGetRemainingTime -ArgumentList $RemainingTime
+
+				#  Update Toast Notification if new label is different
+				if ($LastRemainingTimeLabel -ne $RemainingTimeData.RemainingTimeLabel) {
+					$DictionaryData = Invoke-Command -ScriptBlock $ToastNotificationNewDictionaryData
+
+					if ($showCountdown) {
+						if ($null -eq $InitialRemainingMinutes) { [int]$InitialRemainingMinutes = ($CountdownTime.Subtract($StartTime)).TotalMinutes }
+
+						$DictionaryData.progressValue = (($InitialRemainingMinutes - $RemainingTimeData.TotalRemainingMinutes) / $InitialRemainingMinutes)
+						$DictionaryData.progressValueStringOverride = [Security.SecurityElement]::Escape($RemainingTimeData.RemainingTimeLabel)
+					}
+					elseif ($configFunctionOptions.ShowAttributionText) {
+						if ($showDefer) {
+							$DictionaryData.attributionText = [Security.SecurityElement]::Escape($configUIToastNotificationMessages.WelcomePrompt_AttributionTextAutoDeferral -f ( <#0#> $deploymentTypeName.ToLower()), ( <#1#> $RemainingTimeData.RemainingTimeLabel))
+						}
+						else {
+							$DictionaryData.attributionText = [Security.SecurityElement]::Escape($configUIToastNotificationMessages.AttributionTextAutoContinue -f ( <#0#> $RemainingTimeData.RemainingTimeLabel))
+						}
+					}
+
+					$ToastNotificationUpdateParameters = @{
+						InvokedMethod  = "Update"
+						Group          = $ToastNotificationGroup
+						DictionaryData = $DictionaryData
+					}
+
+					$null = Invoke-ToastNotificationAsUser @ToastNotificationUpdateParameters
+				}
+				$LastRemainingTimeLabel = $RemainingTimeData.RemainingTimeLabel
 			}
 		}
 
@@ -1853,13 +1936,13 @@ Function Show-WelcomePrompt {
 			#  If CloseApps processes were running when the Toast Notification was shown, and they are subsequently detected to be closed while the Toast Notification is showing, then close the Toast Notification. The deferral and CloseApps conditions will be re-evaluated.
 			if ($ProcessDescriptions) { if ($null -eq $dynamicRunningProcesses) { Write-Log -Message "Previously detected running processes are no longer running." -Source ${CmdletName} } }
 			#  If CloseApps processes were not running when the Toast Notification was shown, and they are subsequently detected to be running while the Toast Notification is showing, then close the Toast Notification for relaunch. The deferral and CloseApps conditions will be re-evaluated.
-			else { if ($dynamicRunningProcesses) { Write-Log -Message "New running processes detected. Updating the Toast Notification to prompt to close the running applications." -Source ${CmdletName} } }
+			elseif ($dynamicRunningProcesses) { Write-Log -Message "New running processes detected. Updating the Toast Notification to prompt to close the running applications." -Source ${CmdletName} }
 
 			#  Update the Toast Notification if the running processes have changed
 			if ($dynamicRunningProcessDescriptions -ne $runningProcessDescriptions) {
 				if (-not $showDefer -and -not $showCloseApps) {
 					#  If no defer options and no running processes, continue
-					Set-Variable -Name $functionResultVariable -Scope Global -Value "Continue" -Force
+					$Result = "Continue"
 					Clear-ToastNotificationHistory -Group $ToastNotificationGroup
 				}
 				else {
@@ -1869,154 +1952,40 @@ Function Show-WelcomePrompt {
 					if ($dynamicRunningProcesses) { Write-Log -Message "The running processes have changed. Updating the apps to close: [$runningProcessDescriptions]..." -Source ${CmdletName} }
 
 					#  Update the Toast Notification with the processes to close
-					Invoke-Command -ScriptBlock $ShowToastNotification -NoNewScope
+					Invoke-Command -ScriptBlock $ToastNotificationShowScriptBlock -NoNewScope
 				}
 			}
 		}
-
-		## Loops until the Toast Notification gives a result
-		[scriptblock]$LoopUntilToastNotificationResult = {
-			do {
-				$ToastNotificationVisible = Test-ToastNotificationVisible -Group $ToastNotificationGroup
-
-				#  Get Toast Notification result
-				if (-not $configToastNotificationGeneralOptions.SubscribeToEvents) {
-					if ([string]::IsNullOrWhiteSpace((Get-Variable -Name $functionResultVariable -Scope Global -ValueOnly))) {
-						Set-Variable -Name $functionResultVariable -Scope Global -Value (Get-ToastNotificationResult -AllowedResults $AllowedResults) -Force
-					}
-				}
-
-				switch ((Get-Variable -Name $functionResultVariable -Scope Global -ValueOnly)) {
-					#  Expected button clicked
-					{ $_ -in $AllowedResults } {
-						Write-Log -Message "Toast Notification result [$_], continuing the execution..." -Source ${CmdletName}
-						$ToastNotificationVisible = $false
-						break
-					}
-
-					"ApplicationHidden" { Write-Log -Message "Toast Notification result [$_], the Toast Notification has been hidden by the application." -Severity 2 -Source ${CmdletName} }
-					"Click" { Write-Log -Message "Toast Notification result [$_], the user has clicked the Toast Notification body." -Severity 2 -Source ${CmdletName} }
-					"TimedOut" { Write-Log -Message "Toast Notification result [$_], the Toast Notification has timed out." -Severity 2 -Source ${CmdletName} }
-					"UserCanceled" {
-						Write-Log -Message "Toast Notification result [$_], the user has closed the Toast Notification." -Severity 2 -Source ${CmdletName}
-						if (-not $persistPrompt) {
-							Write-Log -Message "Try using '-PersistPrompt' to avoid this behaviour, exiting function with 'Timeout'." -Severity 2 -Source ${CmdletName}
-							Set-Variable -Name $functionResultVariable -Scope Global -Value "Timeout" -Force
-							break
-						}
-					}
-
-					#  Update Toast Notification remaining time data
-					{ $ToastNotificationVisible } {
-						#  Dynamically update the Toast Notification running applications list
-						if ($configInstallationWelcomePromptDynamicRunningProcessEvaluation) {
-							Invoke-Command -ScriptBlock $ReevaluateRunningProcesses -NoNewScope
-						}
-
-						#  Update Toast Notification remaining time data
-						Invoke-Command -ScriptBlock $UpdateToastNotificationData -NoNewScope
-					}
-
-					#  Re-construct and re-show the Toast Notification
-					{ -not $ToastNotificationVisible } {
-						if ($persistPrompt -or $_ -in ("ApplicationHidden", "Click", "TimedOut")) {
-							Write-Log -Message "The Toast Notification has been closed, it will be shown again." -Severity 2 -Source ${CmdletName}
-							Invoke-Command -ScriptBlock $ShowToastNotification -NoNewScope
-							$ToastNotificationVisible = Test-ToastNotificationVisible -Group $ToastNotificationGroup
-						}
-					}
-
-					#  Wait a few seconds before reevaluate result
-					{ [string]::IsNullOrWhiteSpace($_) } {
-						Start-Sleep -Seconds $configFunctionOptions.UpdateInterval
-					}
-				}
-			}
-			while ($ToastNotificationVisible)
-		}
-
-		## Fallback to original function if any problem occur
-		[scriptblock]$FallbackToOriginalFunction = {
-			#  Call the original function if no result or not in allowed array
-			if ((Get-Variable -Name $functionResultVariable -Scope Global -ValueOnly -ErrorAction Ignore) -notin $AllowedResults) {
-
-				#  Get the parameters passed to the function for invoking the function asynchronously
-				[hashtable]$welcomePromptParameters = $PSBoundParameters
-
-				#  Modify ProcessDescriptions parameter to suit the original function parameter.
-				if ($welcomePromptParameters.ContainsKey("ProcessDescriptions")) {
-					$welcomePromptParameters.Remove("ProcessDescriptions")
-					[string]$runningProcessDescriptions = ($processDescriptions.ProcessDescription | Sort-Object -Unique) -join ", "
-					$welcomePromptParameters.Add("ProcessDescriptions", $runningProcessDescriptions)
-				}
-
-				Set-Variable -Name $functionResultVariable -Scope Global -Value (Show-WelcomePromptOriginal @welcomePromptParameters) -Force
-			}
-		}
-		#endregion Function reusable ScriptBlocks
+		#endregion
 
 
 		## Create Working Directory temp folder to use
-		if (-not (Test-Path -Path $ResourceFolder -PathType Container)) {
-			try {
-				New-Folder -Path $ResourceFolder -ContinueOnError $false
-				$null = Remove-FolderAfterReboot -Path $ResourceFolder -ContinueOnError $true -DisableFunctionLogging
-			}
-			catch {
-				Write-Log -Message "Unable to create Toast Notification resource folder. Falling back to original function...`r`n$(Resolve-Error)" -Severity 3 -Source ${CmdletName}
+		$ResourceFolderCreated = New-ToastNotificationResourceFolder -ResourceFolder $ResourceFolder
 
-				#  Fallback to original function
-				Invoke-Command -ScriptBlock $FallbackToOriginalFunction -NoNewScope
-			}
-		}
-
-		## Test if the Toast Notification can be shown
-		if ((Get-Variable -Name $functionResultVariable -Scope Global -ValueOnly -ErrorAction Ignore) -notin $AllowedResults) {
-			$TestToastNotificationShowResult = Test-ToastNotificationExtension -CheckProtocol
-		}
-
-		if ($TestToastNotificationShowResult -and (Test-Path -Path $ResourceFolder -PathType Container)) {
+		if ($ResourceFolderCreated) {
 			## Minimize all other windows
 			if ($minimizeWindows) { $null = $shellApp.MinimizeAll() }
 
-			Invoke-Command -ScriptBlock $ShowToastNotification -NoNewScope
+			## Test if the Toast Notification can be shown
+			$ToastNotificationExtensionTestResult = Test-ToastNotificationExtension -CheckProtocol
 
-			$ToastNotificationVisible = Test-ToastNotificationVisible -Group $ToastNotificationGroup
-			if ($ToastNotificationVisible) {
-				Invoke-Command -ScriptBlock $LoopUntilToastNotificationResult -NoNewScope
-			}
+			if ($ToastNotificationExtensionTestResult) {
+				#  Create and show the Toast Notification
+				Invoke-Command -ScriptBlock $ToastNotificationShowScriptBlock -NoNewScope
 
-			#  Clear any previous registered Toast Notification Events jobs
-			if ($configToastNotificationGeneralOptions.SubscribeToEvents) {
-				Unregister-ToastNotificationEvents -ResultVariable $functionResultVariable
-			}
-
-			#  Clear any previous displayed Toast Notification
-			Clear-ToastNotificationHistory -Group $ToastNotificationGroup
-		}
-		else {
-			#  Fallback to original function
-			Invoke-Command -ScriptBlock $FallbackToOriginalFunction -NoNewScope
-		}
-
-		if ([string]::IsNullOrWhiteSpace((Get-Variable -Name $functionResultVariable -Scope Global -ValueOnly))) {
-			if ($configToastNotificationGeneralOptions.SubscribeToEvents) {
-				Write-Log -Message "Something strange happended to the Toast Notification, exiting function with 'Timeout'." -Severity 3 -Source ${CmdletName}
-				Set-Variable -Name $functionResultVariable -Scope Global -Value "Timeout" -Force
-			}
-			else {
-				Set-Variable -Name $functionResultVariable -Scope Global -Value (Get-ToastNotificationResult -AllowedResults $AllowedResults) -Force
-				if ([string]::IsNullOrWhiteSpace((Get-Variable -Name $functionResultVariable -Scope Global -ValueOnly))) {
-					Write-Log -Message "The user has closed the Toast Notification, try using '-PersistPrompt' to avoid this behaviour, exiting function with 'Timeout'." -Severity 2 -Source ${CmdletName}
-					Set-Variable -Name $functionResultVariable -Scope Global -Value "Timeout" -Force
+				#  Loops until Toast Notification result
+				if ($ToastNotificationVisible) {
+					Invoke-Command -ScriptBlock $ToastNotificationLoopUntilResult -NoNewScope
 				}
 			}
 		}
 
-		$ToastNotificationResult = Get-Variable -Name $functionResultVariable -Scope Global -ValueOnly
-		Remove-Variable -Name $functionResultVariable -Scope Global -Force
+		## Fallback to original function
+		Invoke-Command -ScriptBlock $ToastNotificationFallbackToOriginalFunction -NoNewScope
 
-		return $ToastNotificationResult
+		Write-Log -Message "Exiting function [${CmdletName}] with result [$Result]." -Severity 2 -Source ${CmdletName} -DebugMessage
+
+		return $Result
 	}
 	End {
 		Write-FunctionHeaderOrFooter -CmdletName ${CmdletName} -Footer
@@ -2055,6 +2024,7 @@ Function Show-BalloonTip {
 	.NOTES
 	.LINK
 		https://github.com/LFM8787/PSADT.ToastNotification
+		https://psappdeploytoolkit.com
 		http://psappdeploytoolkit.com
 	#>
 	[CmdletBinding()]
@@ -2066,13 +2036,13 @@ Function Show-BalloonTip {
 		[ValidateNotNullorEmpty()]
 		[string]$BalloonTipTitle = $installTitle,
 		[Parameter(Mandatory = $false, Position = 2)]
-		[ValidateSet('Error', 'Info', 'None', 'Warning')]
-		[Windows.Forms.ToolTipIcon]$BalloonTipIcon = 'Info',
+		[ValidateSet("Error", "Info", "None", "Warning")]
+		[Windows.Forms.ToolTipIcon]$BalloonTipIcon = "Info",
 		[Parameter(Mandatory = $false, Position = 3)]
 		[ValidateNotNullorEmpty()]
 		[int32]$BalloonTipTime = 10000,
 		[Parameter(Mandatory = $false, Position = 4)]
-		[switch]$NoWait = $false
+		[switch]$NoWait
 	)
 
 	Begin {
@@ -2080,27 +2050,26 @@ Function Show-BalloonTip {
 		[string]${CmdletName} = $PSCmdlet.MyInvocation.MyCommand.Name
 		Write-FunctionHeaderOrFooter -CmdletName ${CmdletName} -CmdletBoundParameters $PSBoundParameters -Header
 
-		## Load required assemblies
-		Invoke-Command -ScriptBlock $LoadRequiredToastNotificationAssemblies -NoNewScope
-
 		## Define function variables
 		$ToastNotificationGroup = "BalloonTip"
 		$configFunctionOptions = Get-Variable -Name "configToastNotification$($ToastNotificationGroup)Options" -ValueOnly
+		$ResultVariable = "$($ToastNotificationGroup)_$([System.Diagnostics.Process]::GetCurrentProcess().Id)_Result"
 		$ResourceFolder = $configToastNotificationGeneralOptions.ResourceFolder
 	}
 	Process {
-		##  Bypass if in silent mode
+		## Bypass if in silent mode
 		if ($deployModeSilent) {
-			Write-Log -Message "Bypassing function [${CmdletName}], because DeployMode [$deployMode]. Text: $BalloonTipText" -Source ${CmdletName}
+			Write-Log -Message "Bypassing function [${CmdletName}], because DeployMode [$deployMode]. Text: $BalloonTipText" -Severity 2 -Source ${CmdletName}
 			return
 		}
 		else {
-			Write-Log -Message "Displaying function [${CmdletName}] with text: $BalloonTipText" -Source ${CmdletName}
+			Write-Log -Message "Executing function [${CmdletName}]. Text: $BalloonTipText" -Severity 2 -Source ${CmdletName}
 		}
 
+
 		#region Function reusable ScriptBlocks
-		## Creates the Toast Notification template
-		[scriptblock]$ConstructToastNotificationTemplate = {
+		## Defines the Toast Notification template
+		[scriptblock]$DefineToastNotificationTemplate = {
 			$XMLTemplate = @()
 			if ($BalloonTipTime -gt 10000) {
 				$XMLTemplate += '<toast duration="long">'
@@ -2196,99 +2165,24 @@ Function Show-BalloonTip {
 
 			$XMLTemplate += '</toast>'
 		}
-
-		## Creates the Toast Notification object using the Toast Notification template
-		[scriptblock]$ConstructToastNotificationObject = {
-			try {
-				#  Construct Toast Notification template
-				Invoke-Command -ScriptBlock $ConstructToastNotificationTemplate -NoNewScope
-
-				#  Save template for debugging
-				($scriptSeparator, $XMLTemplate, $scriptSeparator) | ForEach-Object { Write-Log -Message $_ -Source ${CmdletName} -DebugMessage }
-
-				#  Trying to parse the ToastNotification template as XML
-				$XMLObject = New-Object Windows.Data.Xml.Dom.XmlDocument
-				$XMLObject.LoadXml($XMLTemplate)
-
-				## New ToastNotification object
-				$ToastNotificationObject = [Windows.UI.Notifications.ToastNotification]::New($XMLObject)
-				$ToastNotificationObject.Tag = $configToastNotificationGeneralOptions.TaggingVariable
-				$ToastNotificationObject.Group = $ToastNotificationGroup
-			}
-			catch {
-				Write-Log -Message "Unable to create Toast Notification object. Falling back to original function...`r`n$(Resolve-Error)" -Severity 3 -Source ${CmdletName}
-
-				#  Fallback to original function
-				$CreateToastNotifier = $false
-			}
-		}
-
-		## Shows the Toast Notification
-		[scriptblock]$ShowToastNotification = {
-			#  Reset global result variable and remove any result file
-			$CreateToastNotifier = $true
-
-			#  Clear any previous displayed Toast Notification
-			Clear-ToastNotificationHistory -Group $ToastNotificationGroup
-
-			#  Generate Toast Notification object
-			Invoke-Command -ScriptBlock $ConstructToastNotificationObject -NoNewScope
-
-			#  Attempt to show the new Toast Notification
-			if ($CreateToastNotifier) {
-				try {
-					$null = [Windows.UI.Notifications.ToastNotificationManager]::CreateToastNotifier($configToastNotificationAppId.AppId).Show($ToastNotificationObject)
-				}
-				catch {
-					Write-Log -Message "Unable to show Toast Notification. Falling back to original function...`r`n$(Resolve-Error)" -Severity 3 -Source ${CmdletName}
-
-					#  Fallback to original function
-					Invoke-Command -ScriptBlock $FallbackToOriginalFunction -NoNewScope
-				}
-			}
-			else {
-				#  Fallback to original function
-				Invoke-Command -ScriptBlock $FallbackToOriginalFunction -NoNewScope
-			}
-		}
-
-		## Fallback to original function if any problem occur
-		[scriptblock]$FallbackToOriginalFunction = {
-			if (-not $OriginalFunctionTriggered) {
-				Show-BalloonTipOriginal @PSBoundParameters
-			}
-
-			$OriginalFunctionTriggered = $true
-		}
-		#endregion Function reusable ScriptBlocks
+		#endregion
 
 
 		## Create Working Directory temp folder to use
-		if (-not (Test-Path -Path $ResourceFolder -PathType Container)) {
-			try {
-				New-Folder -Path $ResourceFolder -ContinueOnError $false
-				$null = Remove-FolderAfterReboot -Path $ResourceFolder -ContinueOnError $true -DisableFunctionLogging
+		$ResourceFolderCreated = New-ToastNotificationResourceFolder -ResourceFolder $ResourceFolder
+
+		if ($ResourceFolderCreated) {
+			## Test if the Toast Notification can be shown
+			$ToastNotificationExtensionTestResult = Test-ToastNotificationExtension
+
+			if ($ToastNotificationExtensionTestResult) {
+				#  Create and show the Toast Notification
+				Invoke-Command -ScriptBlock $ToastNotificationShowScriptBlock -NoNewScope
 			}
-			catch {
-				Write-Log -Message "Unable to create Toast Notification resource folder. Falling back to original function...`r`n$(Resolve-Error)" -Severity 3 -Source ${CmdletName}
-
-				#  Fallback to original function
-				Invoke-Command -ScriptBlock $FallbackToOriginalFunction -NoNewScope
-			}
 		}
 
-		## Test if the Toast Notification can be shown
-		if (-not $OriginalFunctionTriggered) {
-			$TestToastNotificationShowResult = Test-ToastNotificationExtension
-		}
-
-		if ($TestToastNotificationShowResult -and (Test-Path -Path $ResourceFolder -PathType Container)) {
-			Invoke-Command -ScriptBlock $ShowToastNotification -NoNewScope
-		}
-		else {
-			#  Fallback to original function
-			Invoke-Command -ScriptBlock $FallbackToOriginalFunction -NoNewScope
-		}
+		## Fallback to original function
+		Invoke-Command -ScriptBlock $ToastNotificationFallbackToOriginalFunction -NoNewScope
 	}
 	End {
 		Write-FunctionHeaderOrFooter -CmdletName ${CmdletName} -Footer
@@ -2335,6 +2229,7 @@ Function Show-DialogBox {
 		Part of Toast Notification Extension
 	.LINK
 		https://github.com/LFM8787/PSADT.ToastNotification
+		https://psappdeploytoolkit.com
 		http://psappdeploytoolkit.com
 	#>
 	[CmdletBinding()]
@@ -2366,28 +2261,25 @@ Function Show-DialogBox {
 		[string]${CmdletName} = $PSCmdlet.MyInvocation.MyCommand.Name
 		Write-FunctionHeaderOrFooter -CmdletName ${CmdletName} -CmdletBoundParameters $PSBoundParameters -Header
 
-		## Load required assemblies
-		Invoke-Command -ScriptBlock $LoadRequiredToastNotificationAssemblies -NoNewScope
-
 		## Define function variables
 		$ToastNotificationGroup = "DialogBox"
 		$AllowedResults = @("Ok", "Cancel", "Abort", "Retry", "Ignore", "Yes", "No", "TryAgain", "Continue", "Timeout")
 		$configFunctionOptions = Get-Variable -Name "configToastNotification$($ToastNotificationGroup)Options" -ValueOnly
-		$functionResultVariable = "ToastNotification$($ToastNotificationGroup)Result"
+		$ResultVariable = "$($ToastNotificationGroup)_$([System.Diagnostics.Process]::GetCurrentProcess().Id)_Result"
 		$ResourceFolder = $configToastNotificationGeneralOptions.ResourceFolder
 	}
 	Process {
-		##  Bypass if in non-interactive mode
+		## Bypass if in non-interactive mode
 		if ($deployModeNonInteractive) {
-			Write-Log -Message "Bypassing Show-DialogBox [Mode: $deployMode]. Text:$Text" -Source ${CmdletName}
+			Write-Log -Message "Bypassing function [${CmdletName}], because DeployMode [$deployMode]. Text: $Text" -Severity 2 -Source ${CmdletName}
 			return
 		}
 		else {
-			Write-Log -Message "Displaying Dialog Box with message: $Text" -Source ${CmdletName}
+			Write-Log -Message "Executing function [${CmdletName}]. Text: $Text" -Severity 2 -Source ${CmdletName}
 		}
 
 		## Reset times
-		[datetime]$startTime = Get-Date
+		[datetime]$StartTime = Get-Date
 
 		## Check if the timeout exceeds the maximum allowed
 		if ($Timeout -gt $configInstallationUITimeout) {
@@ -2398,29 +2290,16 @@ Function Show-DialogBox {
 				$Timeout = $configInstallationUITimeout
 			}
 			else {
-				throw "The timeout time [$Timeout] cannot be longer than the timeout specified in the XML configuration for installation UI dialogs to timeout [$configInstallationUITimeout]." 
-			}			
+				throw "The timeout time [$Timeout] cannot be longer than the timeout specified in the XML configuration for installation UI dialogs to timeout [$configInstallationUITimeout]."
+			}
 		}
 
-		$DialogBoxButtonText = [PSCustomObject]@{
-			OK       = [string](Get-StringFromFile -Path $envUser32LibraryPath -StringID ([int][DialogButton]::OK) -DisableFunctionLogging).Replace("&", "")
-			Cancel   = [string](Get-StringFromFile -Path $envUser32LibraryPath -StringID ([int][DialogButton]::Cancel) -DisableFunctionLogging).Replace("&", "")
-			Abort    = [string](Get-StringFromFile -Path $envUser32LibraryPath -StringID ([int][DialogButton]::Abort) -DisableFunctionLogging).Replace("&", "")
-			Retry    = [string](Get-StringFromFile -Path $envUser32LibraryPath -StringID ([int][DialogButton]::Retry) -DisableFunctionLogging).Replace("&", "")
-			Ignore   = [string](Get-StringFromFile -Path $envUser32LibraryPath -StringID ([int][DialogButton]::Ignore) -DisableFunctionLogging).Replace("&", "")
-			Yes      = [string](Get-StringFromFile -Path $envUser32LibraryPath -StringID ([int][DialogButton]::Yes) -DisableFunctionLogging).Replace("&", "")
-			No       = [string](Get-StringFromFile -Path $envUser32LibraryPath -StringID ([int][DialogButton]::No) -DisableFunctionLogging).Replace("&", "")
-			Close    = [string](Get-StringFromFile -Path $envUser32LibraryPath -StringID ([int][DialogButton]::Close) -DisableFunctionLogging).Replace("&", "")
-			Help     = [string](Get-StringFromFile -Path $envUser32LibraryPath -StringID ([int][DialogButton]::Help) -DisableFunctionLogging).Replace("&", "")
-			TryAgain = [string](Get-StringFromFile -Path $envUser32LibraryPath -StringID ([int][DialogButton]::TryAgain) -DisableFunctionLogging).Replace("&", "")
-			Continue = [string](Get-StringFromFile -Path $envUser32LibraryPath -StringID ([int][DialogButton]::Continue) -DisableFunctionLogging).Replace("&", "")
-		}
 
 		#region Function reusable ScriptBlocks
-		## Creates the Toast Notification template
-		[scriptblock]$ConstructToastNotificationTemplate = {
+		## Defines the Toast Notification template
+		[scriptblock]$DefineToastNotificationTemplate = {
 			$XMLTemplate = @()
-			$XMLTemplate += '<toast activationType="{0}" launch="{1}Click" scenario="alarm">' -f ( <#0#> $configToastNotificationGeneralOptions.ActivationType), ( <#1#> [Security.SecurityElement]::Escape($configToastNotificationGeneralOptions.ArgumentsPrefix))
+			$XMLTemplate += '<toast activationType="{0}" launch="{1}{2}?Click" scenario="alarm">' -f ( <#0#> $configToastNotificationGeneralOptions.ActivationType), ( <#1#> $configToastNotificationGeneralOptions.ArgumentsPrefix), ( <#2#> $ResultVariable)
 			$XMLTemplate += '<visual baseUri="file://{0}\">' -f ( <#0#> [Security.SecurityElement]::Escape($ResourceFolder))
 			$XMLTemplate += '<binding template="ToastGeneric">'
 
@@ -2463,7 +2342,7 @@ Function Show-DialogBox {
 			}
 
 			#  Tittle section
-			$XMLTemplate += '<text>{0}</text>' -f ( <#0#> [Security.SecurityElement]::Escape($installTitle))
+			$XMLTemplate += '<text>{0}</text>' -f ( <#0#> [Security.SecurityElement]::Escape($Title))
 
 			if ($configFunctionOptions.ShowAttributionText) {
 				$XMLTemplate += '<text placement="attribution">{attributionText}</text>'
@@ -2506,11 +2385,13 @@ Function Show-DialogBox {
 				$XMLTemplate += '<subgroup hint-textStacking="center">'
 			}
 
-			if (($Text -split '`r`n').Count -gt 5) {
-				$XMLTemplate += '<text hint-style="Caption" hint-wrap="true">{0}</text>' -f ( <#0#> [Security.SecurityElement]::Escape($Text))
+			[array]$SplittedMessage = $Text -split '`r`n'
+
+			if ($SplittedMessage.Count -gt 5) {
+				$XMLTemplate += '<text hint-style="Caption" hint-wrap="true">{0}</text>' -f ( <#0#> [Security.SecurityElement]::Escape($SplittedMessage))
 			}
 			else {
-				$XMLTemplate += '<text hint-style="Base" hint-wrap="true">{0}</text>' -f ( <#0#> [Security.SecurityElement]::Escape($Text))
+				$XMLTemplate += '<text hint-style="Base" hint-wrap="true">{0}</text>' -f ( <#0#> [Security.SecurityElement]::Escape($SplittedMessage))
 			}
 			$XMLTemplate += '</subgroup>'
 			$XMLTemplate += '</group>'
@@ -2522,15 +2403,15 @@ Function Show-DialogBox {
 			$XMLTemplate += '<actions>'
 
 			switch -regex ($Buttons) {
-				"OK" { $XMLTemplate += '<action content="{0}" activationType="{1}" arguments="{2}OK"/>' -f ( <#0#> [Security.SecurityElement]::Escape($DialogBoxButtonText.OK)), ( <#1#> $configToastNotificationGeneralOptions.ActivationType), ( <#2#> [Security.SecurityElement]::Escape($configToastNotificationGeneralOptions.ArgumentsPrefix)) }
-				"Abort" { $XMLTemplate += '<action content="{0}" activationType="{1}" arguments="{2}Abort"/>' -f ( <#0#> [Security.SecurityElement]::Escape($DialogBoxButtonText.Abort)), ( <#1#> $configToastNotificationGeneralOptions.ActivationType), ( <#2#> [Security.SecurityElement]::Escape($configToastNotificationGeneralOptions.ArgumentsPrefix)) }
-				"Retry" { $XMLTemplate += '<action content="{0}" activationType="{1}" arguments="{2}Retry"/>' -f ( <#0#> [Security.SecurityElement]::Escape($DialogBoxButtonText.Retry)), ( <#1#> $configToastNotificationGeneralOptions.ActivationType), ( <#2#> [Security.SecurityElement]::Escape($configToastNotificationGeneralOptions.ArgumentsPrefix)) }
-				"Ignore" { $XMLTemplate += '<action content="{0}" activationType="{1}" arguments="{2}Ignore"/>' -f ( <#0#> [Security.SecurityElement]::Escape($DialogBoxButtonText.Ignore)), ( <#1#> $configToastNotificationGeneralOptions.ActivationType), ( <#2#> [Security.SecurityElement]::Escape($configToastNotificationGeneralOptions.ArgumentsPrefix)) }
-				"Yes" { $XMLTemplate += '<action content="{0}" activationType="{1}" arguments="{2}Yes"/>' -f ( <#0#> [Security.SecurityElement]::Escape($DialogBoxButtonText.Yes)), ( <#1#> $configToastNotificationGeneralOptions.ActivationType), ( <#2#> [Security.SecurityElement]::Escape($configToastNotificationGeneralOptions.ArgumentsPrefix)) }
-				"(?!\w*Ig)No(?<!re\w*)" { $XMLTemplate += '<action content="{0}" activationType="{1}" arguments="{2}No"/>' -f ( <#0#> [Security.SecurityElement]::Escape($DialogBoxButtonText.No)), ( <#1#> $configToastNotificationGeneralOptions.ActivationType), ( <#2#> [Security.SecurityElement]::Escape($configToastNotificationGeneralOptions.ArgumentsPrefix)) }
-				"Cancel" { $XMLTemplate += '<action content="{0}" activationType="{1}" arguments="{2}Cancel"/>' -f ( <#0#> [Security.SecurityElement]::Escape($DialogBoxButtonText.Cancel)), ( <#1#> $configToastNotificationGeneralOptions.ActivationType), ( <#2#> [Security.SecurityElement]::Escape($configToastNotificationGeneralOptions.ArgumentsPrefix)) }
-				"TryAgain" { $XMLTemplate += '<action content="{0}" activationType="{1}" arguments="{2}TryAgain"/>' -f ( <#0#> [Security.SecurityElement]::Escape($DialogBoxButtonText.TryAgain)), ( <#1#> $configToastNotificationGeneralOptions.ActivationType), ( <#2#> [Security.SecurityElement]::Escape($configToastNotificationGeneralOptions.ArgumentsPrefix)) }
-				"Continue" { $XMLTemplate += '<action content="{0}" activationType="{1}" arguments="{2}Continue"/>' -f ( <#0#> [Security.SecurityElement]::Escape($DialogBoxButtonText.Continue)), ( <#1#> $configToastNotificationGeneralOptions.ActivationType), ( <#2#> [Security.SecurityElement]::Escape($configToastNotificationGeneralOptions.ArgumentsPrefix)) }
+				"OK" { $XMLTemplate += '<action content="{0}" activationType="{1}" arguments="{2}{3}?OK"/>' -f ( <#0#> [Security.SecurityElement]::Escape((Invoke-Command -ScriptBlock $TranslateButton -ArgumentList "OK"))), ( <#1#> $configToastNotificationGeneralOptions.ActivationType), ( <#2#> $configToastNotificationGeneralOptions.ArgumentsPrefix), ( <#3#> $ResultVariable) }
+				"Abort" { $XMLTemplate += '<action content="{0}" activationType="{1}" arguments="{2}{3}?Abort"/>' -f ( <#0#> [Security.SecurityElement]::Escape((Invoke-Command -ScriptBlock $TranslateButton -ArgumentList "Abort"))), ( <#1#> $configToastNotificationGeneralOptions.ActivationType), ( <#2#> $configToastNotificationGeneralOptions.ArgumentsPrefix), ( <#3#> $ResultVariable) }
+				"Retry" { $XMLTemplate += '<action content="{0}" activationType="{1}" arguments="{2}{3}?Retry"/>' -f ( <#0#> [Security.SecurityElement]::Escape((Invoke-Command -ScriptBlock $TranslateButton -ArgumentList "Retry"))), ( <#1#> $configToastNotificationGeneralOptions.ActivationType), ( <#2#> $configToastNotificationGeneralOptions.ArgumentsPrefix), ( <#3#> $ResultVariable) }
+				"Ignore" { $XMLTemplate += '<action content="{0}" activationType="{1}" arguments="{2}{3}?Ignore"/>' -f ( <#0#> [Security.SecurityElement]::Escape((Invoke-Command -ScriptBlock $TranslateButton -ArgumentList "Ignore"))), ( <#1#> $configToastNotificationGeneralOptions.ActivationType), ( <#2#> $configToastNotificationGeneralOptions.ArgumentsPrefix), ( <#3#> $ResultVariable) }
+				"Yes" { $XMLTemplate += '<action content="{0}" activationType="{1}" arguments="{2}{3}?Yes"/>' -f ( <#0#> [Security.SecurityElement]::Escape((Invoke-Command -ScriptBlock $TranslateButton -ArgumentList "Yes"))), ( <#1#> $configToastNotificationGeneralOptions.ActivationType), ( <#2#> $configToastNotificationGeneralOptions.ArgumentsPrefix), ( <#3#> $ResultVariable) }
+				"(?!\w*Ig)No(?<!re\w*)" { $XMLTemplate += '<action content="{0}" activationType="{1}" arguments="{2}{3}?No"/>' -f ( <#0#> [Security.SecurityElement]::Escape((Invoke-Command -ScriptBlock $TranslateButton -ArgumentList "No"))), ( <#1#> $configToastNotificationGeneralOptions.ActivationType), ( <#2#> $configToastNotificationGeneralOptions.ArgumentsPrefix), ( <#3#> $ResultVariable) }
+				"Cancel" { $XMLTemplate += '<action content="{0}" activationType="{1}" arguments="{2}{3}?Cancel"/>' -f ( <#0#> [Security.SecurityElement]::Escape((Invoke-Command -ScriptBlock $TranslateButton -ArgumentList "Cancel"))), ( <#1#> $configToastNotificationGeneralOptions.ActivationType), ( <#2#> $configToastNotificationGeneralOptions.ArgumentsPrefix), ( <#3#> $ResultVariable) }
+				"TryAgain" { $XMLTemplate += '<action content="{0}" activationType="{1}" arguments="{2}{3}?TryAgain"/>' -f ( <#0#> [Security.SecurityElement]::Escape((Invoke-Command -ScriptBlock $TranslateButton -ArgumentList "TryAgain"))), ( <#1#> $configToastNotificationGeneralOptions.ActivationType), ( <#2#> $configToastNotificationGeneralOptions.ArgumentsPrefix), ( <#3#> $ResultVariable) }
+				"Continue" { $XMLTemplate += '<action content="{0}" activationType="{1}" arguments="{2}{3}?Continue"/>' -f ( <#0#> [Security.SecurityElement]::Escape((Invoke-Command -ScriptBlock $TranslateButton -ArgumentList "Continue"))), ( <#1#> $configToastNotificationGeneralOptions.ActivationType), ( <#2#> $configToastNotificationGeneralOptions.ArgumentsPrefix), ( <#3#> $ResultVariable) }
 			}
 
 			$XMLTemplate += '</actions>'
@@ -2541,255 +2422,79 @@ Function Show-DialogBox {
 			$XMLTemplate += '</toast>'
 		}
 
-		## Creates the Toast Notification object using the Toast Notification template
-		[scriptblock]$ConstructToastNotificationObject = {
-			try {
-				#  Construct Toast Notification template
-				Invoke-Command -ScriptBlock $ConstructToastNotificationTemplate -NoNewScope
+		## Sets the Toast Notification initial Notification Data
+		[scriptblock]$SetToastNotificationInitialNotificationData = {
+			#  Initial Notification Data
+			$InitialDictionaryData = Invoke-Command -ScriptBlock $ToastNotificationNewDictionaryData
 
-				#  Save template for debugging
-				($scriptSeparator, $XMLTemplate, $scriptSeparator) | ForEach-Object { Write-Log -Message $_ -Source ${CmdletName} -DebugMessage }
-
-				#  Trying to parse the ToastNotification template as XML
-				$XMLObject = New-Object Windows.Data.Xml.Dom.XmlDocument
-				$XMLObject.LoadXml($XMLTemplate)
-
-				#  Initial NotificationData
-				$Dictionary = [System.Collections.Generic.Dictionary[String, String]]::New()
-				if ($configFunctionOptions.ShowAttributionText) { $Dictionary.Add("attributionText", " ") }
-
-				#  New ToastNotification object
-				$ToastNotificationObject = [Windows.UI.Notifications.ToastNotification]::New($XMLObject)
-				$ToastNotificationObject.Tag = $configToastNotificationGeneralOptions.TaggingVariable
-				$ToastNotificationObject.Group = $ToastNotificationGroup
-				$ToastNotificationObject.Data = [Windows.UI.Notifications.NotificationData]::New($Dictionary)
-				$ToastNotificationObject.Data.SequenceNumber = 1
-				$InitialNotificationData = $true
-			}
-			catch {
-				Write-Log -Message "Unable to create Toast Notification object. Falling back to original function...`r`n$(Resolve-Error)" -Severity 3 -Source ${CmdletName}
-
-				#  Fallback to original function
-				$CreateToastNotifier = $false
-			}
-		}
-
-		## Shows the Toast Notification
-		[scriptblock]$ShowToastNotification = {
-			#  Reset global result variable and remove any result file
-			$CreateToastNotifier = $true
-			Set-Variable -Name $functionResultVariable -Scope Global -Value ([string]::Empty) -Force
-			Remove-ToastNotificationResult -ResourceFolder $ResourceFolder
-
-			#  Clear any previous registered Toast Notification Events jobs
-			if ($configToastNotificationGeneralOptions.SubscribeToEvents) {
-				Unregister-ToastNotificationEvents -ResultVariable $functionResultVariable
-			}
-
-			#  Clear any previous displayed Toast Notification
-			Clear-ToastNotificationHistory -Group $ToastNotificationGroup
-
-			#  Generate Toast Notification object
-			Invoke-Command -ScriptBlock $ConstructToastNotificationObject -NoNewScope
-
-			#  Register Toast Notification Events
-			if ($null -ne $ToastNotificationObject) {
-				if ($configToastNotificationGeneralOptions.SubscribeToEvents) {
-					$RegisterToastNotificationEventsResult = Register-ToastNotificationEvents -ToastNotificationObject $ToastNotificationObject -ResultVariable $functionResultVariable
-					if ($RegisterToastNotificationEventsResult -eq $false) {
-						$TestToastNotificationShowResult = Test-ToastNotificationExtension -CheckProtocol
-						if ($TestToastNotificationShowResult -eq $false) {
-							$CreateToastNotifier = $false
-						}
-						else {
-							#  Regenerate Toast Notification object using protocol
-							Invoke-Command -ScriptBlock $ConstructToastNotificationObject -NoNewScope
-						}
-					}
-				}
-			}
-			else {
-				$CreateToastNotifier = $false
-			}
-
-			#  Attempt to show the new Toast Notification
-			if ($CreateToastNotifier) {
-				try {
-					$null = [Windows.UI.Notifications.ToastNotificationManager]::CreateToastNotifier($configToastNotificationAppId.AppId).Show($ToastNotificationObject)
-					if ($? -and (Test-ToastNotificationVisible -Group $ToastNotificationGroup)) {
-						Invoke-Command -ScriptBlock $UpdateToastNotificationData -NoNewScope
-					}
-				}
-				catch {
-					Write-Log -Message "Unable to show Toast Notification. Falling back to original function...`r`n$(Resolve-Error)" -Severity 3 -Source ${CmdletName}
-
-					#  Fallback to original function
-					Invoke-Command -ScriptBlock $FallbackToOriginalFunction -NoNewScope
-				}
-			}
-			else {
-				#  Fallback to original function
-				Invoke-Command -ScriptBlock $FallbackToOriginalFunction -NoNewScope
+			if ($configFunctionOptions.ShowAttributionText) {
+				$InitialDictionaryData.attributionText = " "
 			}
 		}
 
 		## Update Toast Notification if necessary
 		[scriptblock]$UpdateToastNotificationData = {
-			#  Check if there is remaining time
-			Invoke-Command -ScriptBlock $TestRemainingTime -NoNewScope
-
-			if ($InitialNotificationData -or ($LastRemainingTimeLabel -ne $RemainingTimeLabel)) {
-				$InitialNotificationData = $false
-				try {
-					#  Update NotificationData
-					$Dictionary = [System.Collections.Generic.Dictionary[String, String]]::New()
-					if ($configFunctionOptions.ShowAttributionText) {
-						$Dictionary.Add("attributionText", ($configUIToastNotificationMessages.AttributionTextAutoContinue -f ( <#0#> $RemainingTimeLabel)))
-					}
-
-					#  Update ToastNotification object
-					$NotificationData = [Windows.UI.Notifications.NotificationData]::New($Dictionary)
-					$NotificationData.SequenceNumber = 2
-					$null = [Windows.UI.Notifications.ToastNotificationManager]::CreateToastNotifier($configToastNotificationAppId.AppId).Update($NotificationData, $configToastNotificationGeneralOptions.TaggingVariable, $ToastNotificationGroup)
-				}
-				catch {
-					Write-Log -Message "Unable to update Toast Notification.`r`n$(Resolve-Error)" -Severity 3 -Source ${CmdletName}
-				}
-			}
-			$LastRemainingTimeLabel = $RemainingTimeLabel
-		}
-
-		## Check remaining time
-		[scriptblock]$TestRemainingTime = {
 			#  Get the time information
-			[datetime]$currentTime = Get-Date
-			[datetime]$countdownTime = $startTime.AddSeconds($Timeout)
-			[timespan]$remainingTime = $countdownTime.Subtract($currentTime)
+			[datetime]$CurrentTime = Get-Date
+			[datetime]$CountdownTime = $StartTime.AddSeconds($Timeout)
 
 			#  If the countdown is complete, close the application(s) or continue
-			if ($countdownTime -le $currentTime) {
-				Write-Log -Message "Toast Notification result [Timeout], exiting function." -Severity 2 -Source ${CmdletName}
-				Set-Variable -Name $functionResultVariable -Scope Global -Value "Timeout" -Force
+			if ($CountdownTime -le $CurrentTime) {
+				$Result = "Timeout"
+				Write-Log -Message "Toast Notification result [$Result], exiting function." -Severity 2 -Source ${CmdletName}
 			}
 			else {
-				#  Update the remaining time string
-				$remainingHours = $remainingTime.Days * 24 + $remainingTime.Hours
-				$remainingMinutes = $remainingTime.Minutes
-				$totalremainingMinutes = $remainingHours * 60 + $remainingMinutes
-				if ($null -eq $initialremainingMinutes) { [int]$initialremainingMinutes = ($countdownTime.Subtract($startTime)).TotalMinutes }
+				#  Update the remaining time data
+				[timespan]$RemainingTime = $CountdownTime.Subtract($CurrentTime)
 
-				$RemainingTimeLabel = [string]::Empty
-				if ($remainingHours -gt 1) { $RemainingTimeLabel += "$($remainingHours) $($configUIToastNotificationMessages.RemainingTimeHours) " }
-				elseif ($remainingHours -eq 1) { $RemainingTimeLabel += "$($remainingHours) $($configUIToastNotificationMessages.RemainingTimeHour) " }
-				if ($remainingMinutes -eq 1) { $RemainingTimeLabel += "$($remainingMinutes) $($configUIToastNotificationMessages.RemainingTimeMinute)" }
-				else { $RemainingTimeLabel += "$($remainingMinutes) $($configUIToastNotificationMessages.RemainingTimeMinutes)" }
-			}
-		}
+				$RemainingTimeData = Invoke-Command -ScriptBlock $ToastNotificationGetRemainingTime -ArgumentList $RemainingTime
 
-		## ScriptBlock that loops until the Toast Notification gives a result
-		[scriptblock]$LoopUntilToastNotificationResult = {
-			do {
-				$ToastNotificationVisible = Test-ToastNotificationVisible -Group $ToastNotificationGroup
+				#  Update Toast Notification if new label is different
+				if ($LastRemainingTimeLabel -ne $RemainingTimeData.RemainingTimeLabel) {
+					$DictionaryData = Invoke-Command -ScriptBlock $ToastNotificationNewDictionaryData
 
-				#  Get Toast Notification result
-				if (-not $configToastNotificationGeneralOptions.SubscribeToEvents) {
-					if ([string]::IsNullOrWhiteSpace((Get-Variable -Name $functionResultVariable -Scope Global -ValueOnly))) {
-						Set-Variable -Name $functionResultVariable -Scope Global -Value (Get-ToastNotificationResult -AllowedResults $AllowedResults) -Force
+					if ($configFunctionOptions.ShowAttributionText) {
+						$DictionaryData.attributionText = [Security.SecurityElement]::Escape($configUIToastNotificationMessages.AttributionTextAutoContinue -f ( <#0#> $RemainingTimeData.RemainingTimeLabel))
 					}
+
+					$ToastNotificationUpdateParameters = @{
+						InvokedMethod  = "Update"
+						Group          = $ToastNotificationGroup
+						DictionaryData = $DictionaryData
+					}
+
+					$null = Invoke-ToastNotificationAsUser @ToastNotificationUpdateParameters
 				}
-
-				switch ((Get-Variable -Name $functionResultVariable -Scope Global -ValueOnly)) {
-					#  Expected button clicked
-					{ $_ -in $AllowedResults } {
-						Write-Log -Message "Toast Notification result [$_], continuing the execution..." -Source ${CmdletName}
-						$ToastNotificationVisible = $false
-						break
-					}
-
-					"ApplicationHidden" { Write-Log -Message "Toast Notification result [$_], the Toast Notification has been hidden by the application." -Severity 2 -Source ${CmdletName} }
-					"Click" { Write-Log -Message "Toast Notification result [$_], the user has clicked the Toast Notification body." -Severity 2 -Source ${CmdletName} }
-					"TimedOut" { Write-Log -Message "Toast Notification result [$_], the Toast Notification has timed out." -Severity 2 -Source ${CmdletName} }
-					"UserCanceled" { Write-Log -Message "Toast Notification result [$_], the user has closed the Toast Notification." -Severity 2 -Source ${CmdletName} }
-
-					#  Update Toast Notification remaining time data
-					{ $ToastNotificationVisible } { Invoke-Command -ScriptBlock $UpdateToastNotificationData -NoNewScope }
-
-					# Re-construct and re-show the Toast Notification
-					{ -not [string]::IsNullOrWhiteSpace($_) -or -not $ToastNotificationVisible } {
-						Write-Log -Message "The Toast Notification has been closed, it will be shown again." -Severity 2 -Source ${CmdletName}
-						Invoke-Command -ScriptBlock $ShowToastNotification -NoNewScope
-						$ToastNotificationVisible = Test-ToastNotificationVisible -Group $ToastNotificationGroup
-						break
-					}
-
-					#  Wait a few seconds before reevaluate result
-					{ [string]::IsNullOrWhiteSpace($_) } {
-						Start-Sleep -Seconds $configFunctionOptions.UpdateInterval
-					}
-				}
-			}
-			while ($ToastNotificationVisible)
-		}
-
-		## Fallback to original function if any problem occur
-		[scriptblock]$FallbackToOriginalFunction = {
-			#  Call the original function if no result or not in allowed array
-			if ((Get-Variable -Name $functionResultVariable -Scope Global -ValueOnly -ErrorAction Ignore) -notin $AllowedResults) {
-				Set-Variable -Name $functionResultVariable -Scope Global -Value (Show-DialogBoxOriginal @PSBoundParameters) -Force
+				$LastRemainingTimeLabel = $RemainingTimeData.RemainingTimeLabel
 			}
 		}
-		#endregion Function reusable ScriptBlocks
+		#endregion
 
 
 		## Create Working Directory temp folder to use
-		if (-not (Test-Path -Path $ResourceFolder -PathType Container)) {
-			try {
-				New-Folder -Path $ResourceFolder -ContinueOnError $false
-				$null = Remove-FolderAfterReboot -Path $ResourceFolder -ContinueOnError $true -DisableFunctionLogging
+		$ResourceFolderCreated = New-ToastNotificationResourceFolder -ResourceFolder $ResourceFolder
+
+		if ($ResourceFolderCreated) {
+			## Test if the Toast Notification can be shown
+			$ToastNotificationExtensionTestResult = Test-ToastNotificationExtension -CheckProtocol
+
+			if ($ToastNotificationExtensionTestResult) {
+				#  Create and show the Toast Notification
+				Invoke-Command -ScriptBlock $ToastNotificationShowScriptBlock -NoNewScope
+
+				#  Loops until Toast Notification result
+				if ($ToastNotificationVisible) {
+					Invoke-Command -ScriptBlock $ToastNotificationLoopUntilResult -NoNewScope
+				}
 			}
-			catch {
-				Write-Log -Message "Unable to create Toast Notification resource folder. Falling back to original function...`r`n$(Resolve-Error)" -Severity 3 -Source ${CmdletName}
-
-				#  Fallback to original function
-				Invoke-Command -ScriptBlock $FallbackToOriginalFunction -NoNewScope
-			}
 		}
 
-		## Test if the Toast Notification can be shown
-		if ((Get-Variable -Name $functionResultVariable -Scope Global -ValueOnly -ErrorAction Ignore) -notin $AllowedResults) {
-			$TestToastNotificationShowResult = Test-ToastNotificationExtension -CheckProtocol
-		}
+		## Fallback to original function
+		Invoke-Command -ScriptBlock $ToastNotificationFallbackToOriginalFunction -NoNewScope
 
-		if ($TestToastNotificationShowResult -and (Test-Path -Path $ResourceFolder -PathType Container)) {
-			Invoke-Command -ScriptBlock $ShowToastNotification -NoNewScope
+		Write-Log -Message "Exiting function [${CmdletName}] with result [$Result]." -Severity 2 -Source ${CmdletName} -DebugMessage
 
-			$ToastNotificationVisible = Test-ToastNotificationVisible -Group $ToastNotificationGroup
-			if ($ToastNotificationVisible) {
-				Invoke-Command -ScriptBlock $LoopUntilToastNotificationResult -NoNewScope
-			}
-
-			#  Clear any previous registered Toast Notification Events jobs
-			if ($configToastNotificationGeneralOptions.SubscribeToEvents) {
-				Unregister-ToastNotificationEvents -ResultVariable $functionResultVariable
-			}
-
-			#  Clear any previous displayed Toast Notification
-			Clear-ToastNotificationHistory -Group $ToastNotificationGroup
-		}
-		else {
-			#  Fallback to original function
-			Invoke-Command -ScriptBlock $FallbackToOriginalFunction -NoNewScope
-		}
-
-		if ([string]::IsNullOrWhiteSpace((Get-Variable -Name $functionResultVariable -Scope Global -ValueOnly))) {
-			Write-Log -Message "Something strange happended to the Toast Notification, exiting function with 'Timeout'." -Severity 3 -Source ${CmdletName}
-			Set-Variable -Name $functionResultVariable -Scope Global -Value "Timeout" -Force
-		}
-
-		$ToastNotificationResult = Get-Variable -Name $functionResultVariable -Scope Global -ValueOnly
-		Remove-Variable -Name $functionResultVariable -Scope Global -Force -ErrorAction Ignore
-
-		return $ToastNotificationResult
+		return $Result
 	}
 	End {
 		Write-FunctionHeaderOrFooter -CmdletName ${CmdletName} -Footer
@@ -2837,6 +2542,7 @@ Function Show-InstallationRestartPrompt {
 		Part of Toast Notification Extension
 	.LINK
 		https://github.com/LFM8787/PSADT.ToastNotification
+		https://psappdeploytoolkit.com
 		http://psappdeploytoolkit.com
 	#>
 	[CmdletBinding()]
@@ -2864,18 +2570,15 @@ Function Show-InstallationRestartPrompt {
 		[string]${CmdletName} = $PSCmdlet.MyInvocation.MyCommand.Name
 		Write-FunctionHeaderOrFooter -CmdletName ${CmdletName} -CmdletBoundParameters $PSBoundParameters -Header
 
-		## Load required assemblies
-		Invoke-Command -ScriptBlock $LoadRequiredToastNotificationAssemblies -NoNewScope
-
 		## Define function variables
 		$ToastNotificationGroup = "InstallationRestartPrompt"
 		$AllowedResults = @("RestartLater", "RestartNow")
 		$configFunctionOptions = Get-Variable -Name "configToastNotification$($ToastNotificationGroup)Options" -ValueOnly
-		$functionResultVariable = "ToastNotification$($ToastNotificationGroup)Result"
+		$ResultVariable = "$($ToastNotificationGroup)_$([System.Diagnostics.Process]::GetCurrentProcess().Id)_Result"
 		$ResourceFolder = $configToastNotificationGeneralOptions.ResourceFolder
 	}
 	Process {
-		## Restart scriptblock
+		## Restart Computer ScriptBlock
 		[scriptblock]$RestartComputer = {
 			Write-Log -Message "Forcefully restarting the computer..." -Severity 2 -Source ${CmdletName}
 			Start-Process -FilePath "shutdown.exe" -ArgumentList "/r /f /t $($SilentCountdownSeconds)" -WindowStyle Hidden -ErrorAction SilentlyContinue
@@ -2928,13 +2631,16 @@ Function Show-InstallationRestartPrompt {
 			return
 		}
 
-		## Get start times
-		[datetime]$startTime = Get-Date
-		[datetime]$countdownTime = $startTime
+		## Initial variables definition
+		[datetime]$StartTime = Get-Date
+
+		## Toast Notification variable standarization
+		$Timeout = $CountdownSeconds
+
 
 		#region Function reusable ScriptBlocks
-		## Creates the Toast Notification template
-		[scriptblock]$ConstructToastNotificationTemplate = {
+		## Defines the Toast Notification template
+		[scriptblock]$DefineToastNotificationTemplate = {
 			$XMLTemplate = @()
 			$XMLTemplate += '<toast duration="long">'
 			$XMLTemplate += '<visual baseUri="file://{0}\">' -f ( <#0#> [Security.SecurityElement]::Escape($ResourceFolder))
@@ -3036,8 +2742,8 @@ Function Show-InstallationRestartPrompt {
 
 			#  Action buttons section
 			$XMLTemplate += '<actions>'
-			$XMLTemplate += '<action content="{0}" activationType="{1}" arguments="{2}RestartLater"/>' -f ( <#0#> [Security.SecurityElement]::Escape($configUIToastNotificationMessages.RestartPrompt_ButtonRestartLater)), ( <#1#> $configToastNotificationGeneralOptions.ActivationType), ( <#2#> [Security.SecurityElement]::Escape($configToastNotificationGeneralOptions.ArgumentsPrefix))
-			$XMLTemplate += '<action content="{0}" activationType="{1}" arguments="{2}RestartNow"/>' -f ( <#0#> [Security.SecurityElement]::Escape($configUIToastNotificationMessages.RestartPrompt_ButtonRestartNow)), ( <#1#> $configToastNotificationGeneralOptions.ActivationType), ( <#2#> [Security.SecurityElement]::Escape($configToastNotificationGeneralOptions.ArgumentsPrefix))
+			$XMLTemplate += '<action content="{0}" activationType="{1}" arguments="{2}{3}?RestartNow"/>' -f ( <#0#> [Security.SecurityElement]::Escape($configUIToastNotificationMessages.RestartPrompt_ButtonRestartNow)), ( <#1#> $configToastNotificationGeneralOptions.ActivationType), ( <#2#> $configToastNotificationGeneralOptions.ArgumentsPrefix), ( <#3#> $ResultVariable)
+			$XMLTemplate += '<action content="{0}" activationType="{1}" arguments="{2}{3}?RestartLater"/>' -f ( <#0#> [Security.SecurityElement]::Escape($configUIToastNotificationMessages.RestartPrompt_ButtonRestartLater)), ( <#1#> $configToastNotificationGeneralOptions.ActivationType), ( <#2#> $configToastNotificationGeneralOptions.ArgumentsPrefix), ( <#3#> $ResultVariable)
 			$XMLTemplate += '</actions>'
 
 			#  Audio section
@@ -3046,266 +2752,89 @@ Function Show-InstallationRestartPrompt {
 			$XMLTemplate += '</toast>'
 		}
 
-		## Creates the Toast Notification object using the Toast Notification template
-		[scriptblock]$ConstructToastNotificationObject = {
-			try {
-				#  Construct Toast Notification template
-				Invoke-Command -ScriptBlock $ConstructToastNotificationTemplate -NoNewScope
+		## Sets the Toast Notification initial Notification Data
+		[scriptblock]$SetToastNotificationInitialNotificationData = {
+			#  Initial Notification Data
+			$InitialDictionaryData = Invoke-Command -ScriptBlock $ToastNotificationNewDictionaryData
 
-				#  Save template for debugging
-				($scriptSeparator, $XMLTemplate, $scriptSeparator) | ForEach-Object { Write-Log -Message $_ -Source ${CmdletName} -DebugMessage }
+			$InitialDictionaryData.attributionText = " "
 
-				#  Trying to parse the ToastNotification template as XML
-				$XMLObject = New-Object Windows.Data.Xml.Dom.XmlDocument
-				$XMLObject.LoadXml($XMLTemplate)
-
-				#  Initial NotificationData
-				$Dictionary = [System.Collections.Generic.Dictionary[String, String]]::New()
-				if (-not $NoCountdown) {
-					$Dictionary.Add("progressValue", "indeterminate")
-					$Dictionary.Add("progressValueStringOverride", " ")
-					$Dictionary.Add("progressTitle", $configUIToastNotificationMessages.RestartPrompt_ProgressBarTitle)
-					$Dictionary.Add("progressStatus", $configUIToastNotificationMessages.RestartPrompt_ProgressBarStatus)
-				}
-				$Dictionary.Add("attributionText", " ")
-
-				#  New ToastNotification object
-				$ToastNotificationObject = [Windows.UI.Notifications.ToastNotification]::New($XMLObject)
-				$ToastNotificationObject.Tag = $configToastNotificationGeneralOptions.TaggingVariable
-				$ToastNotificationObject.Group = $ToastNotificationGroup
-				$ToastNotificationObject.Data = [Windows.UI.Notifications.NotificationData]::New($Dictionary)
-				$ToastNotificationObject.Data.SequenceNumber = 1
-			}
-			catch {
-				Write-Log -Message "Unable to create Toast Notification object. Falling back to original function...`r`n$(Resolve-Error)" -Severity 3 -Source ${CmdletName}
-
-				#  Fallback to original function
-				$CreateToastNotifier = $false
-			}
-		}
-
-		## Shows the Toast Notification
-		[scriptblock]$ShowToastNotification = {
-			#  Reset global result variable and remove any result file
-			$CreateToastNotifier = $true
-			Set-Variable -Name $functionResultVariable -Scope Global -Value ([string]::Empty) -Force
-			Remove-ToastNotificationResult -ResourceFolder $ResourceFolder
-
-			#  Clear any previous registered Toast Notification Events jobs
-			if ($configToastNotificationGeneralOptions.SubscribeToEvents) {
-				Unregister-ToastNotificationEvents -ResultVariable $functionResultVariable
-			}
-
-			#  Clear any previous displayed Toast Notification
-			Clear-ToastNotificationHistory -Group $ToastNotificationGroup
-
-			#  Generate Toast Notification object
-			Invoke-Command -ScriptBlock $ConstructToastNotificationObject -NoNewScope
-
-			#  Register Toast Notification Events
-			if ($null -ne $ToastNotificationObject) {
-				if ($configToastNotificationGeneralOptions.SubscribeToEvents) {
-					$RegisterToastNotificationEventsResult = Register-ToastNotificationEvents -ToastNotificationObject $ToastNotificationObject -ResultVariable $functionResultVariable
-					if ($RegisterToastNotificationEventsResult -eq $false) {
-						$TestToastNotificationShowResult = Test-ToastNotificationExtension -CheckProtocol
-						if ($TestToastNotificationShowResult -eq $false) {
-							$CreateToastNotifier = $false
-						}
-						else {
-							#  Regenerate Toast Notification object using protocol
-							Invoke-Command -ScriptBlock $ConstructToastNotificationObject -NoNewScope
-						}
-					}
-				}
-			}
-			else {
-				$CreateToastNotifier = $false
-			}
-
-			#  Attempt to show the new Toast Notification
-			if ($CreateToastNotifier) {
-				try {
-					$null = [Windows.UI.Notifications.ToastNotificationManager]::CreateToastNotifier($configToastNotificationAppId.AppId).Show($ToastNotificationObject)
-					if ($?) {
-						Invoke-Command -ScriptBlock $UpdateToastNotificationData -NoNewScope
-					}
-				}
-				catch {
-					Write-Log -Message "Unable to show Toast Notification. Falling back to original function...`r`n$(Resolve-Error)" -Severity 3 -Source ${CmdletName}
-
-					#  Fallback to original function
-					Invoke-Command -ScriptBlock $FallbackToOriginalFunction -NoNewScope
-				}
-			}
-			else {
-				#  Fallback to original function
-				Invoke-Command -ScriptBlock $FallbackToOriginalFunction -NoNewScope
+			if (-not $NoCountdown) {
+				$InitialDictionaryData.progressValue = "indeterminate"
+				$InitialDictionaryData.progressValueStringOverride = " "
+				$InitialDictionaryData.progressTitle = [Security.SecurityElement]::Escape($configUIToastNotificationMessages.RestartPrompt_ProgressBarTitle)
+				$InitialDictionaryData.progressStatus = [Security.SecurityElement]::Escape($configUIToastNotificationMessages.RestartPrompt_ProgressBarStatus)
 			}
 		}
 
 		## Update Toast Notification if necessary
 		[scriptblock]$UpdateToastNotificationData = {
-			#  Check if there is remaining time
-			Invoke-Command -ScriptBlock $TestRemainingTime -NoNewScope
+			#  Get the time information
+			[datetime]$CurrentTime = Get-Date
+			[datetime]$CountdownTime = $StartTime.AddSeconds($Timeout)
 
-			try {
-				#  Update NotificationData
-				$Dictionary = [System.Collections.Generic.Dictionary[String, String]]::New()
-				if (-not $NoCountdown) {
-					$Dictionary.Add("progressValue", (($initialremainingMinutes - $totalremainingMinutes) / $initialremainingMinutes))
-					$Dictionary.Add("progressValueStringOverride", $RemainingTimeLabel)
-				}
+			#  If the countdown is complete, close the application(s) or continue
+			if ($CountdownTime -le $CurrentTime) {
+				$Result = "RestartNow"
+				Write-Log -Message "Toast Notification result [$Result], countdown timer has elapsed." -Severity 2 -Source ${CmdletName}
+			}
+			else {
+				#  Update the remaining time data
+				[timespan]$RemainingTime = $CountdownTime.Subtract($CurrentTime)
+
+				$RemainingTimeData = Invoke-Command -ScriptBlock $ToastNotificationGetRemainingTime -ArgumentList $RemainingTime
+
+				$DictionaryData = Invoke-Command -ScriptBlock $ToastNotificationNewDictionaryData
 
 				if ($configFunctionOptions.ShowAttributionText -and $NoCountdown) {
-					$AttributionText = $configUIToastNotificationMessages.RestartPrompt_AttributionText -f ( <#0#> $RemainingTimeLabel)
+					$AttributionText = $configUIToastNotificationMessages.RestartPrompt_AttributionText -f ( <#0#> $RemainingTimeData.RemainingTimeLabel)
 				}
 				else {
 					$AttributionText = $null
 				}
-				$Dictionary.Add("attributionText", [Security.SecurityElement]::Escape("$($AttributionText)$(" "*(Get-Random -Minimum 1 -Maximum 6))"))
 
-				#  Update ToastNotification object
-				$NotificationData = [Windows.UI.Notifications.NotificationData]::New($Dictionary)
-				$NotificationData.SequenceNumber = 2
-				$null = [Windows.UI.Notifications.ToastNotificationManager]::CreateToastNotifier($configToastNotificationAppId.AppId).Update($NotificationData, $configToastNotificationGeneralOptions.TaggingVariable, $ToastNotificationGroup)
+				$DictionaryData.attributionText = [Security.SecurityElement]::Escape("$($AttributionText)$(" "*(Get-Random -Minimum 1 -Maximum 6))")
 
-			}
-			catch {
-				Write-Log -Message "Unable to update Toast Notification.`r`n$(Resolve-Error)" -Severity 3 -Source ${CmdletName}
-			}
-		}
 
-		## Check remaining time
-		[scriptblock]$TestRemainingTime = {
-			#  Get the time information
-			[datetime]$currentTime = Get-Date
-			[datetime]$countdownTime = $startTime.AddSeconds($CountdownSeconds)
-			[timespan]$remainingTime = $countdownTime.Subtract($currentTime)
+				if (-not $NoCountdown) {
+					if ($null -eq $InitialRemainingMinutes) { [int]$InitialRemainingMinutes = ($CountdownTime.Subtract($StartTime)).TotalMinutes }
 
-			#  If the countdown is complete, restart the computer
-			if ($countdownTime -le $currentTime) {
-				Write-Log -Message "Toast Notification result [RestartNow], countdown timer has elapsed." -Severity 2 -Source ${CmdletName}
-				Set-Variable -Name $functionResultVariable -Scope Global -Value "RestartNow" -Force
-			}
-			else {
-				#  Update the remaining time string
-				$remainingHours = $remainingTime.Days * 24 + $remainingTime.Hours
-				$remainingMinutes = $remainingTime.Minutes
-				$totalremainingMinutes = $remainingHours * 60 + $remainingMinutes
-				if ($null -eq $initialremainingMinutes) { [int]$initialremainingMinutes = ($countdownTime.Subtract($startTime)).TotalMinutes }
-
-				$RemainingTimeLabel = [string]::Empty
-				if ($remainingHours -gt 1) { $RemainingTimeLabel += "$($remainingHours) $($configUIToastNotificationMessages.RemainingTimeHours) " }
-				elseif ($remainingHours -eq 1) { $RemainingTimeLabel += "$($remainingHours) $($configUIToastNotificationMessages.RemainingTimeHour) " }
-				if ($remainingMinutes -eq 1) { $RemainingTimeLabel += "$($remainingMinutes) $($configUIToastNotificationMessages.RemainingTimeMinute)" }
-				else { $RemainingTimeLabel += "$($remainingMinutes) $($configUIToastNotificationMessages.RemainingTimeMinutes)" }
-			}
-		}
-
-		## Loops until the Toast Notification gives a result
-		[scriptblock]$LoopUntilToastNotificationResult = {
-			do {
-				$ToastNotificationVisible = Test-ToastNotificationVisible -Group $ToastNotificationGroup
-
-				#  Get Toast Notification result
-				if (-not $configToastNotificationGeneralOptions.SubscribeToEvents) {
-					if ([string]::IsNullOrWhiteSpace((Get-Variable -Name $functionResultVariable -Scope Global -ValueOnly))) {
-						Set-Variable -Name $functionResultVariable -Scope Global -Value (Get-ToastNotificationResult -AllowedResults $AllowedResults) -Force
-					}
+					$DictionaryData.progressValue = (($InitialRemainingMinutes - $RemainingTimeData.TotalRemainingMinutes) / $InitialRemainingMinutes)
+					$DictionaryData.progressValueStringOverride = [Security.SecurityElement]::Escape($RemainingTimeData.RemainingTimeLabel)
 				}
 
-				switch ((Get-Variable -Name $functionResultVariable -Scope Global -ValueOnly)) {
-					#  Expected button clicked
-					{ $_ -in $AllowedResults } {
-						if ($_ -eq "RestartLater") {
-							Write-Log -Message "Toast Notification result [$_], the user has choosen to restart later..." -Source ${CmdletName}
-						}
-						elseif ($_ -eq "RestartNow") {
-							Write-Log -Message "Toast Notification result [$_], the user has choosen to restart now..." -Source ${CmdletName}
-							$ToastNotificationVisible = $false
-							break
-						}
-					}
-
-					"ApplicationHidden" { Write-Log -Message "Toast Notification result [$_], the Toast Notification has been hidden by the application." -Severity 2 -Source ${CmdletName} }
-					"Click" { Write-Log -Message "Toast Notification result [$_], the user has clicked the Toast Notification body." -Severity 2 -Source ${CmdletName} }
-					"TimedOut" { Write-Log -Message "Toast Notification result [$_], the Toast Notification has timed out." -Severity 2 -Source ${CmdletName} }
-					"UserCanceled" { Write-Log -Message "Toast Notification result [$_], the user has closed the Toast Notification." -Severity 2 -Source ${CmdletName} }
-
-					#  Update Toast Notification remaining time data
-					{ $ToastNotificationVisible } { Invoke-Command -ScriptBlock $UpdateToastNotificationData -NoNewScope }
-
-					# Re-construct and re-show the Toast Notification
-					{ -not [string]::IsNullOrWhiteSpace($_) -or -not $ToastNotificationVisible } {
-						Write-Log -Message "The Toast Notification has been closed, it will be shown again in [$configInstallationRestartPersistInterval] seconds." -Severity 2 -Source ${CmdletName}
-
-						# Wait the default time for reshowing the restart prompt
-						Start-Sleep -Seconds $configInstallationRestartPersistInterval
-
-						Invoke-Command -ScriptBlock $ShowToastNotification -NoNewScope
-						$ToastNotificationVisible = Test-ToastNotificationVisible -Group $ToastNotificationGroup
-						break
-					}
-
-					#  Wait a few seconds before reevaluate result
-					{ [string]::IsNullOrWhiteSpace($_) } {
-						Start-Sleep -Seconds $configFunctionOptions.UpdateInterval
-					}
+				$ToastNotificationUpdateParameters = @{
+					InvokedMethod  = "Update"
+					Group          = $ToastNotificationGroup
+					DictionaryData = $DictionaryData
 				}
-			}
-			while ($ToastNotificationVisible)
-		}
 
-		## Fallback to original function if any problem occur
-		[scriptblock]$FallbackToOriginalFunction = {
-			if (-not $OriginalFunctionTriggered) {
-				Show-InstallationRestartPromptOriginal @PSBoundParameters
+				$null = Invoke-ToastNotificationAsUser @ToastNotificationUpdateParameters
 			}
-
-			$OriginalFunctionTriggered = $true
 		}
-		#endregion Function reusable ScriptBlocks
+		#endregion
 
 
 		## Create Working Directory temp folder to use
-		if (-not (Test-Path -Path $ResourceFolder -PathType Container)) {
-			try {
-				New-Folder -Path $ResourceFolder -ContinueOnError $false
-				$null = Remove-FolderAfterReboot -Path $ResourceFolder -ContinueOnError $true -DisableFunctionLogging
-			}
-			catch {
-				Write-Log -Message "Unable to create Toast Notification resource folder. Falling back to original function...`r`n$(Resolve-Error)" -Severity 3 -Source ${CmdletName}
+		$ResourceFolderCreated = New-ToastNotificationResourceFolder -ResourceFolder $ResourceFolder
 
-				#  Fallback to original function
-				Invoke-Command -ScriptBlock $FallbackToOriginalFunction -NoNewScope
+		if ($ResourceFolderCreated) {
+			## Test if the Toast Notification can be shown
+			$ToastNotificationExtensionTestResult = Test-ToastNotificationExtension -CheckProtocol
+
+			if ($ToastNotificationExtensionTestResult) {
+				#  Create and show the Toast Notification
+				Invoke-Command -ScriptBlock $ToastNotificationShowScriptBlock -NoNewScope
+
+				#  Loops until Toast Notification result
+				if ($ToastNotificationVisible) {
+					Invoke-Command -ScriptBlock $ToastNotificationLoopUntilResult -NoNewScope
+				}
 			}
 		}
 
-		## Test if the Toast Notification can be shown
-		if (-not $OriginalFunctionTriggered) {
-			$TestToastNotificationShowResult = Test-ToastNotificationExtension -CheckProtocol
-		}
-
-		if ($TestToastNotificationShowResult -and (Test-Path -Path $ResourceFolder -PathType Container)) {
-			Invoke-Command -ScriptBlock $ShowToastNotification -NoNewScope
-
-			$ToastNotificationVisible = Test-ToastNotificationVisible -Group $ToastNotificationGroup
-			if ($ToastNotificationVisible) {
-				Invoke-Command -ScriptBlock $LoopUntilToastNotificationResult -NoNewScope
-			}
-
-			#  Clear any previous registered Toast Notification Events jobs
-			if ($configToastNotificationGeneralOptions.SubscribeToEvents) {
-				Unregister-ToastNotificationEvents -ResultVariable $functionResultVariable
-			}
-
-			#  Clear any previous displayed Toast Notification
-			Clear-ToastNotificationHistory -Group $ToastNotificationGroup
-		}
-		else {
-			#  Fallback to original function
-			Invoke-Command -ScriptBlock $FallbackToOriginalFunction -NoNewScope
-		}
+		## Fallback to original function
+		Invoke-Command -ScriptBlock $ToastNotificationFallbackToOriginalFunction -NoNewScope
 
 		## If this point is reached, force restart the computer
 		Invoke-Command -ScriptBlock $RestartComputer -NoNewScope
@@ -3368,6 +2897,7 @@ Function Show-InstallationPrompt {
 		Part of Toast Notification Extension
 	.LINK
 		https://github.com/LFM8787/PSADT.ToastNotification
+		https://psappdeploytoolkit.com
 		http://psappdeploytoolkit.com
 	#>
 	[CmdletBinding()]
@@ -3389,10 +2919,8 @@ Function Show-InstallationPrompt {
 		[Parameter(Mandatory = $false)]
 		[ValidateSet("Application", "Asterisk", "Error", "Exclamation", "Hand", "Information", "None", "Question", "Shield", "Warning", "WinLogo")]
 		[string]$Icon = "None",
-		[Parameter(Mandatory = $false)]
-		[switch]$NoWait = $false,
-		[Parameter(Mandatory = $false)]
-		[switch]$PersistPrompt = $false,
+		[switch]$NoWait,
+		[switch]$PersistPrompt,
 		[Parameter(Mandatory = $false)]
 		[ValidateNotNullorEmpty()]
 		[boolean]$MinimizeWindows = $false,
@@ -3412,24 +2940,21 @@ Function Show-InstallationPrompt {
 		[string]${CmdletName} = $PSCmdlet.MyInvocation.MyCommand.Name
 		Write-FunctionHeaderOrFooter -CmdletName ${CmdletName} -CmdletBoundParameters $PSBoundParameters -Header
 
-		## Load required assemblies
-		Invoke-Command -ScriptBlock $LoadRequiredToastNotificationAssemblies -NoNewScope
-
 		## Define function variables
 		$ToastNotificationGroup = "InstallationPrompt"
 		$AllowedResults = @("Left", "Middle", "Right", "Timeout")
 		$configFunctionOptions = Get-Variable -Name "configToastNotification$($ToastNotificationGroup)Options" -ValueOnly
-		$functionResultVariable = "ToastNotification$($ToastNotificationGroup)Result"
+		$ResultVariable = "$($ToastNotificationGroup)_$([System.Diagnostics.Process]::GetCurrentProcess().Id)_Result"
 		$ResourceFolder = $configToastNotificationGeneralOptions.ResourceFolder
 	}
 	Process {
-		## Bypass if in non-interactive mode
+		## Bypass if in silent mode
 		if ($deployModeSilent) {
-			Write-Log -Message "Bypassing Show-InstallationPrompt [Mode: $deployMode]. Message:$Message" -Source ${CmdletName}
+			Write-Log -Message "Bypassing function [${CmdletName}], because DeployMode [$deployMode]. Message: $Message" -Severity 2 -Source ${CmdletName}
 			return
 		}
 		else {
-			Write-Log -Message "Displaying Installation Prompt with message: $Message" -Source ${CmdletName}
+			Write-Log -Message "Executing function [${CmdletName}]. Message: $Message" -Severity 2 -Source ${CmdletName}
 		}
 
 		## Check if the timeout exceeds the maximum allowed
@@ -3458,22 +2983,22 @@ Function Show-InstallationPrompt {
 
 			## Initialize the Toast Notification Extension
 			try { $null = Test-ToastNotificationExtension } catch {}
-						
+
 			## Start another powershell instance silently with function parameters from this function
 			Start-Process -FilePath "$($PSHome)\powershell.exe" -ArgumentList "-ExecutionPolicy Bypass -NoProfile -NoLogo -WindowStyle Hidden -Command &{& `'$scriptPath`' -ReferredInstallTitle `'$Title`' -ReferredInstallName `'$installName`' -ReferredLogName `'$logName`' -ShowInstallationPrompt $installPromptParameters -AsyncToolkitLaunch}" -WindowStyle 'Hidden' -ErrorAction SilentlyContinue
 			return
 		}
 
-		## Reset times
-		[datetime]$startTime = Get-Date
+		## Initial variables definition
+		[datetime]$StartTime = Get-Date
 
 
 		#region Function reusable ScriptBlocks
-		## Creates the Toast Notification template
-		[scriptblock]$ConstructToastNotificationTemplate = {
+		## Defines the Toast Notification template
+		[scriptblock]$DefineToastNotificationTemplate = {
 			$XMLTemplate = @()
 			if ($deployAppScriptFriendlyName) {
-				$XMLTemplate += '<toast activationType="{0}" launch="{1}Click" scenario="alarm">' -f ( <#0#> $configToastNotificationGeneralOptions.ActivationType), ( <#1#> [Security.SecurityElement]::Escape($configToastNotificationGeneralOptions.ArgumentsPrefix))
+				$XMLTemplate += '<toast activationType="{0}" launch="{1}{2}?Click" scenario="alarm">' -f ( <#0#> $configToastNotificationGeneralOptions.ActivationType), ( <#1#> $configToastNotificationGeneralOptions.ArgumentsPrefix), ( <#2#> $ResultVariable)
 			}
 			else {
 				$XMLTemplate += '<toast duration="long">'
@@ -3578,24 +3103,24 @@ Function Show-InstallationPrompt {
 				$XMLTemplate += '<actions>'
 				if ($deployAppScriptFriendlyName) {
 					if ($buttonLeftText) {
-						$XMLTemplate += '<action content="{0}" activationType="{1}" arguments="{2}Left"/>' -f ( <#0#> [Security.SecurityElement]::Escape($buttonLeftText)), ( <#1#> $configToastNotificationGeneralOptions.ActivationType), ( <#2#> [Security.SecurityElement]::Escape($configToastNotificationGeneralOptions.ArgumentsPrefix))
+						$XMLTemplate += '<action content="{0}" activationType="{1}" arguments="{2}{3}?Left"/>' -f ( <#0#> [Security.SecurityElement]::Escape((Invoke-Command -ScriptBlock $TranslateButton -ArgumentList $buttonLeftText))), ( <#1#> $configToastNotificationGeneralOptions.ActivationType), ( <#2#> $configToastNotificationGeneralOptions.ArgumentsPrefix), ( <#3#> $ResultVariable)
 					}
 					if ($buttonMiddleText) {
-						$XMLTemplate += '<action content="{0}" activationType="{1}" arguments="{2}Middle"/>' -f ( <#0#> [Security.SecurityElement]::Escape($buttonMiddleText)), ( <#1#> $configToastNotificationGeneralOptions.ActivationType), ( <#2#> [Security.SecurityElement]::Escape($configToastNotificationGeneralOptions.ArgumentsPrefix))
+						$XMLTemplate += '<action content="{0}" activationType="{1}" arguments="{2}{3}?Middle"/>' -f ( <#0#> [Security.SecurityElement]::Escape((Invoke-Command -ScriptBlock $TranslateButton -ArgumentList $buttonMiddleText))), ( <#1#> $configToastNotificationGeneralOptions.ActivationType), ( <#2#> $configToastNotificationGeneralOptions.ArgumentsPrefix), ( <#3#> $ResultVariable)
 					}
 					if ($buttonRightText) {
-						$XMLTemplate += '<action content="{0}" activationType="{1}" arguments="{2}Right"/>' -f ( <#0#> [Security.SecurityElement]::Escape($buttonRightText)), ( <#1#> $configToastNotificationGeneralOptions.ActivationType), ( <#2#> [Security.SecurityElement]::Escape($configToastNotificationGeneralOptions.ArgumentsPrefix))
+						$XMLTemplate += '<action content="{0}" activationType="{1}" arguments="{2}{3}?Right"/>' -f ( <#0#> [Security.SecurityElement]::Escape((Invoke-Command -ScriptBlock $TranslateButton -ArgumentList $buttonRightText))), ( <#1#> $configToastNotificationGeneralOptions.ActivationType), ( <#2#> $configToastNotificationGeneralOptions.ArgumentsPrefix), ( <#3#> $ResultVariable)
 					}
 				}
 				else {
 					if ($buttonLeftText) {
-						$XMLTemplate += '<action content="{0}" arguments="Left"/>' -f ( <#0#> [Security.SecurityElement]::Escape($buttonLeftText))
+						$XMLTemplate += '<action content="{0}" arguments="Left"/>' -f ( <#0#> [Security.SecurityElement]::Escape((Invoke-Command -ScriptBlock $TranslateButton -ArgumentList $buttonLeftText)))
 					}
 					if ($buttonMiddleText) {
-						$XMLTemplate += '<action content="{0}" arguments="Middle"/>' -f ( <#0#> [Security.SecurityElement]::Escape($buttonMiddleText))
+						$XMLTemplate += '<action content="{0}" arguments="Middle"/>' -f ( <#0#> [Security.SecurityElement]::Escape((Invoke-Command -ScriptBlock $TranslateButton -ArgumentList $buttonMiddleText)))
 					}
 					if ($buttonRightText) {
-						$XMLTemplate += '<action content="{0}" arguments="Right"/>' -f ( <#0#> [Security.SecurityElement]::Escape($buttonRightText))
+						$XMLTemplate += '<action content="{0}" arguments="Right"/>' -f ( <#0#> [Security.SecurityElement]::Escape((Invoke-Command -ScriptBlock $TranslateButton -ArgumentList $buttonRightText)))
 					}
 				}
 				$XMLTemplate += '</actions>'
@@ -3607,312 +3132,127 @@ Function Show-InstallationPrompt {
 			$XMLTemplate += '</toast>'
 		}
 
-		## Creates the Toast Notification object using the Toast Notification template
-		[scriptblock]$ConstructToastNotificationObject = {
-			try {
-				#  Construct Toast Notification template
-				Invoke-Command -ScriptBlock $ConstructToastNotificationTemplate -NoNewScope
+		## Sets the Toast Notification initial Notification Data
+		[scriptblock]$SetToastNotificationInitialNotificationData = {
+			#  Initial Notification Data
+			$InitialDictionaryData = Invoke-Command -ScriptBlock $ToastNotificationNewDictionaryData
 
-				#  Save template for debugging
-				($scriptSeparator, $XMLTemplate, $scriptSeparator) | ForEach-Object { Write-Log -Message $_ -Source ${CmdletName} -DebugMessage }
-
-				## Trying to parse the ToastNotification template as XML
-				$XMLObject = New-Object Windows.Data.Xml.Dom.XmlDocument
-				$XMLObject.LoadXml($XMLTemplate)
-
-				## Initial NotificationData
-				$Dictionary = [System.Collections.Generic.Dictionary[String, String]]::New()
-				$Dictionary.Add("attributionText", " ")
-
-				## New ToastNotification object
-				$ToastNotificationObject = [Windows.UI.Notifications.ToastNotification]::New($XMLObject)
-				$ToastNotificationObject.Tag = $configToastNotificationGeneralOptions.TaggingVariable
-				$ToastNotificationObject.Group = $ToastNotificationGroup
-				$ToastNotificationObject.Data = [Windows.UI.Notifications.NotificationData]::New($Dictionary)
-				$ToastNotificationObject.Data.SequenceNumber = 1
-				$InitialNotificationData = $true
-			}
-			catch {
-				Write-Log -Message "Unable to create Toast Notification object. Falling back to original function...`r`n$(Resolve-Error)" -Severity 3 -Source ${CmdletName}
-
-				#  Fallback to original function
-				$CreateToastNotifier = $false
-			}
-		}
-
-		## Shows the Toast Notification
-		[scriptblock]$ShowToastNotification = {
-			#  Reset global result variable and remove any result file
-			$CreateToastNotifier = $true
-			if ($deployAppScriptFriendlyName) { Set-Variable -Name $functionResultVariable -Scope Global -Value ([string]::Empty) -Force }
-			Remove-ToastNotificationResult -ResourceFolder $ResourceFolder
-
-			#  Clear any previous registered Toast Notification Events jobs
-			if ($configToastNotificationGeneralOptions.SubscribeToEvents -and $deployAppScriptFriendlyName) {
-				Unregister-ToastNotificationEvents -ResultVariable $functionResultVariable
-			}
-
-			#  Clear any previous displayed Toast Notification
-			Clear-ToastNotificationHistory -Group $ToastNotificationGroup
-
-			#  Generate Toast Notification object
-			Invoke-Command -ScriptBlock $ConstructToastNotificationObject -NoNewScope
-
-			#  Register Toast Notification Events
-			if ($null -ne $ToastNotificationObject) {
-				if ($deployAppScriptFriendlyName) {
-					if ($configToastNotificationGeneralOptions.SubscribeToEvents) {
-						$RegisterToastNotificationEventsResult = Register-ToastNotificationEvents -ToastNotificationObject $ToastNotificationObject -ResultVariable $functionResultVariable
-						if ($RegisterToastNotificationEventsResult -eq $false) {
-							$TestToastNotificationShowResult = Test-ToastNotificationExtension -CheckProtocol
-							if ($TestToastNotificationShowResult -eq $false) {
-								$CreateToastNotifier = $false
-							}
-							else {
-								#  Regenerate Toast Notification object using protocol
-								Invoke-Command -ScriptBlock $ConstructToastNotificationObject -NoNewScope
-							}
-						}
-					}
-				}
-			}
-			else {
-				$CreateToastNotifier = $false
-			}
-
-			#  Attempt to show the new Toast Notification
-			if ($CreateToastNotifier) {
-				try {
-					$null = [Windows.UI.Notifications.ToastNotificationManager]::CreateToastNotifier($configToastNotificationAppId.AppId).Show($ToastNotificationObject)
-					if ($?) {
-						Invoke-Command -ScriptBlock $UpdateToastNotificationData -NoNewScope
-					}
-				}
-				catch {
-					Write-Log -Message "Unable to show Toast Notification. Falling back to original function...`r`n$(Resolve-Error)" -Severity 3 -Source ${CmdletName}
-
-					#  Fallback to original function
-					Invoke-Command -ScriptBlock $FallbackToOriginalFunction -NoNewScope
-				}
-			}
-			else {
-				#  Fallback to original function
-				Invoke-Command -ScriptBlock $FallbackToOriginalFunction -NoNewScope
-			}
+			$InitialDictionaryData.attributionText = " "
 		}
 
 		## Update Toast Notification if necessary
 		[scriptblock]$UpdateToastNotificationData = {
-			#  Check if there is remaining time
-			Invoke-Command -ScriptBlock $TestRemainingTime -NoNewScope
-
-			if ($InitialNotificationData -or ($LastRemainingTimeLabel -ne $RemainingTimeLabel)) {
-				$InitialNotificationData = $false
-				try {
-					#  Update NotificationData
-					$Dictionary = [System.Collections.Generic.Dictionary[String, String]]::New()
-					if ($configFunctionOptions.ShowAttributionText) {
-						if ($deployAppScriptFriendlyName) {
-							$AttributionText = $configUIToastNotificationMessages.AttributionTextAutoContinue -f ( <#0#> $RemainingTimeLabel)
-						}
-						else {
-							$AttributionText = $configUIToastNotificationMessages.InstallationPrompt_AttributionTextDismiss
-						}
-					}
-					else {
-						$AttributionText = " "
-					}
-					$Dictionary.Add("attributionText", [Security.SecurityElement]::Escape($AttributionText))
-
-					#  Update ToastNotification object
-					$NotificationData = [Windows.UI.Notifications.NotificationData]::New($Dictionary)
-					$NotificationData.SequenceNumber = 2
-					$null = [Windows.UI.Notifications.ToastNotificationManager]::CreateToastNotifier($configToastNotificationAppId.AppId).Update($NotificationData, $configToastNotificationGeneralOptions.TaggingVariable, $ToastNotificationGroup)
-				}
-				catch {
-					Write-Log -Message "Unable to update Toast Notification.`r`n$(Resolve-Error)" -Severity 3 -Source ${CmdletName}
-				}
-			}
-			$LastRemainingTimeLabel = $RemainingTimeLabel
-		}
-
-		## Check remaining time
-		[scriptblock]$TestRemainingTime = {
 			#  Get the time information
-			[datetime]$currentTime = Get-Date
-			[datetime]$countdownTime = $startTime.AddSeconds($Timeout)
-			[timespan]$remainingTime = $countdownTime.Subtract($currentTime)
+			[datetime]$CurrentTime = Get-Date
+			[datetime]$CountdownTime = $StartTime.AddSeconds($Timeout)
 
-			#  If the countdown is complete, continue
-			if ($countdownTime -le $currentTime) {
-				Write-Log -Message "Toast Notification result [Timeout], exiting function." -Severity 2 -Source ${CmdletName}
-				Set-Variable -Name $functionResultVariable -Scope Global -Value "Timeout" -Force
+			#  If the countdown is complete, close the application(s) or continue
+			if ($CountdownTime -le $CurrentTime) {
+				$Result = "Timeout"
+				Write-Log -Message "Toast Notification result [$Result], exiting function." -Severity 2 -Source ${CmdletName}
 			}
 			else {
-				#  Update the remaining time string
-				$remainingHours = $remainingTime.Days * 24 + $remainingTime.Hours
-				$remainingMinutes = $remainingTime.Minutes
-				$totalremainingMinutes = $remainingHours * 60 + $remainingMinutes
-				if ($null -eq $initialremainingMinutes) { [int]$initialremainingMinutes = ($countdownTime.Subtract($startTime)).TotalMinutes }
+				#  Update the remaining time data
+				[timespan]$RemainingTime = $CountdownTime.Subtract($CurrentTime)
 
-				$RemainingTimeLabel = [string]::Empty
-				if ($remainingHours -gt 1) { $RemainingTimeLabel += "$($remainingHours) $($configUIToastNotificationMessages.RemainingTimeHours) " }
-				elseif ($remainingHours -eq 1) { $RemainingTimeLabel += "$($remainingHours) $($configUIToastNotificationMessages.RemainingTimeHour) " }
-				if ($remainingMinutes -eq 1) { $RemainingTimeLabel += "$($remainingMinutes) $($configUIToastNotificationMessages.RemainingTimeMinute)" }
-				else { $RemainingTimeLabel += "$($remainingMinutes) $($configUIToastNotificationMessages.RemainingTimeMinutes)" }
-			}
-		}
+				$RemainingTimeData = Invoke-Command -ScriptBlock $ToastNotificationGetRemainingTime -ArgumentList $RemainingTime
 
-		## Loops until the Toast Notification gives a result
-		[scriptblock]$LoopUntilToastNotificationResult = {
-			do {
-				$ToastNotificationVisible = Test-ToastNotificationVisible -Group $ToastNotificationGroup
+				$DictionaryData = Invoke-Command -ScriptBlock $ToastNotificationNewDictionaryData
 
-				if ($deployAppScriptFriendlyName) {
-					#  Get Toast Notification result
-					if (-not $configToastNotificationGeneralOptions.SubscribeToEvents) {
-						if ([string]::IsNullOrWhiteSpace((Get-Variable -Name $functionResultVariable -Scope Global -ValueOnly))) {
-							Set-Variable -Name $functionResultVariable -Scope Global -Value (Get-ToastNotificationResult -AllowedResults $AllowedResults) -Force
-						}
+				if ($configFunctionOptions.ShowAttributionText) {
+					if ($deployAppScriptFriendlyName) {
+						$AttributionText = $configUIToastNotificationMessages.AttributionTextAutoContinue -f ( <#0#> $RemainingTimeData.RemainingTimeLabel)
 					}
-
-					switch ((Get-Variable -Name $functionResultVariable -Scope Global -ValueOnly)) {
-						#  Expected button clicked
-						{ $_ -in $AllowedResults } {
-							Write-Log -Message "Toast Notification result [$($ExecutionContext.InvokeCommand.ExpandString('$button{0}Text' -f $_))], exiting function..." -Source ${CmdletName}
-							$ToastNotificationVisible = $false
-							break
-						}
-
-						"ApplicationHidden" { Write-Log -Message "Toast Notification result [$_], the Toast Notification has been hidden by the application." -Severity 2 -Source ${CmdletName} }
-						"Click" { Write-Log -Message "Toast Notification result [$_], the user has clicked the Toast Notification body." -Severity 2 -Source ${CmdletName} }
-						"TimedOut" { Write-Log -Message "Toast Notification result [$_], the Toast Notification has timed out." -Severity 2 -Source ${CmdletName} }
-						"UserCanceled" { Write-Log -Message "Toast Notification result [$_], the user has closed the Toast Notification." -Severity 2 -Source ${CmdletName} }
-
-						#  Update Toast Notification remaining time data
-						{ $ToastNotificationVisible } { Invoke-Command -ScriptBlock $UpdateToastNotificationData -NoNewScope }
-
-						# Re-construct and re-show the Toast Notification
-						{ -not [string]::IsNullOrWhiteSpace($_) -or -not $ToastNotificationVisible } {
-							Write-Log -Message "The Toast Notification has been closed, it will be shown again." -Severity 2 -Source ${CmdletName}
-							Invoke-Command -ScriptBlock $ShowToastNotification -NoNewScope
-							$ToastNotificationVisible = Test-ToastNotificationVisible -Group $ToastNotificationGroup
-							break
-						}
-
-						#  Wait a few seconds before reevaluate result
-						{ [string]::IsNullOrWhiteSpace($_) } {
-							Start-Sleep -Seconds $configFunctionOptions.UpdateInterval
-						}
+					else {
+						$AttributionText = $configUIToastNotificationMessages.InstallationPrompt_AttributionTextDismiss
 					}
 				}
 				else {
-					if ($countdownTime -gt (Get-Date)) {
-						#  Update NotificationData
-						$Dictionary = [System.Collections.Generic.Dictionary[String, String]]::New()
-						$Dictionary.Add("attributionText", [Security.SecurityElement]::Escape("$($AttributionText)$(" "*(Get-Random -Minimum 1 -Maximum 6))"))
-
-						#  Update ToastNotification object
-						$NotificationData = [Windows.UI.Notifications.NotificationData]::New($Dictionary)
-						$NotificationData.SequenceNumber = 2
-						$null = [Windows.UI.Notifications.ToastNotificationManager]::CreateToastNotifier($configToastNotificationAppId.AppId).Update($NotificationData, $configToastNotificationGeneralOptions.TaggingVariable, $ToastNotificationGroup)
-
-						#  Wait a few seconds before reupdate
-						Start-Sleep -Seconds $configFunctionOptions.UpdateInterval
-					}
+					$AttributionText = " "
 				}
-			}
-			while ($ToastNotificationVisible)
-		}
 
-		## Fallback to original function if any problem occur
-		[scriptblock]$FallbackToOriginalFunction = {
-			#  Call the original function if no result or not in allowed array
-			if ((Get-Variable -Name $functionResultVariable -Scope Global -ValueOnly -ErrorAction Ignore) -notin $AllowedResults) {
 				if ($deployAppScriptFriendlyName) {
-					Set-Variable -Name $functionResultVariable -Scope Global -Value (Show-InstallationPromptOriginal @PSBoundParameters) -Force
+					#  Update Toast Notification if new label is different
+					if ($LastRemainingTimeLabel -ne $RemainingTimeData.RemainingTimeLabel) {
+						$DictionaryData.attributionText = [Security.SecurityElement]::Escape($AttributionText)
+
+						$ToastNotificationUpdateParameters = @{
+							InvokedMethod  = "Update"
+							Group          = $ToastNotificationGroup
+							DictionaryData = $DictionaryData
+						}
+
+						$null = Invoke-ToastNotificationAsUser @ToastNotificationUpdateParameters
+					}
+					$LastRemainingTimeLabel = $RemainingTimeData.RemainingTimeLabel
 				}
 				else {
-					Show-InstallationPromptOriginal @PSBoundParameters
+					$DictionaryData.attributionText = [Security.SecurityElement]::Escape("$($AttributionText)$(" "*(Get-Random -Minimum 1 -Maximum 6))")
+
+					$ToastNotificationUpdateParameters = @{
+						InvokedMethod  = "Update"
+						Group          = $ToastNotificationGroup
+						DictionaryData = $DictionaryData
+					}
+
+					$null = Invoke-ToastNotificationAsUser @ToastNotificationUpdateParameters
 				}
 			}
 		}
-		#endregion Function reusable ScriptBlocks
+		#endregion
 
 
 		## Create Working Directory temp folder to use
-		if (-not (Test-Path -Path $ResourceFolder -PathType Container)) {
-			try {
-				New-Folder -Path $ResourceFolder -ContinueOnError $false
-				$null = Remove-FolderAfterReboot -Path $ResourceFolder -ContinueOnError $true -DisableFunctionLogging
-			}
-			catch {
-				Write-Log -Message "Unable to create Toast Notification resource folder. Falling back to original function...`r`n$(Resolve-Error)" -Severity 3 -Source ${CmdletName}
+		$ResourceFolderCreated = New-ToastNotificationResourceFolder -ResourceFolder $ResourceFolder
 
-				#  Fallback to original function
-				Invoke-Command -ScriptBlock $FallbackToOriginalFunction -NoNewScope
-			}
-		}
-
-		## Test if the Toast Notification can be shown
-		if ((Get-Variable -Name $functionResultVariable -Scope Global -ValueOnly -ErrorAction Ignore) -notin $AllowedResults) {
+		if ($ResourceFolderCreated) {
+			## Test if the Toast Notification can be shown
 			if ($deployAppScriptFriendlyName) {
-				$TestToastNotificationShowResult = Test-ToastNotificationExtension -CheckProtocol
+				$ToastNotificationExtensionTestResult = Test-ToastNotificationExtension -CheckProtocol
 			}
 			else {
-				$TestToastNotificationShowResult = Test-ToastNotificationExtension
+				$ToastNotificationExtensionTestResult = Test-ToastNotificationExtension
 			}
-		}
 
-		if ($TestToastNotificationShowResult -and (Test-Path -Path $ResourceFolder -PathType Container)) {
-			## Minimize all other windows
-			if ($minimizeWindows) { $null = $shellApp.MinimizeAll() }
+			if ($ToastNotificationExtensionTestResult) {
+				#  Minimize all other windows
+				if ($minimizeWindows) { $null = $shellApp.MinimizeAll() }
 
-			Invoke-Command -ScriptBlock $ShowToastNotification -NoNewScope
+				#  Create and show the Toast Notification
+				Invoke-Command -ScriptBlock $ToastNotificationShowScriptBlock -NoNewScope
 
-			$ToastNotificationVisible = Test-ToastNotificationVisible -Group $ToastNotificationGroup
-			if ($ToastNotificationVisible) {
-				Invoke-Command -ScriptBlock $LoopUntilToastNotificationResult -NoNewScope
-
-				if ($deployAppScriptFriendlyName) {
-					#  Clear any previous registered Toast Notification Events jobs
-					if ($configToastNotificationGeneralOptions.SubscribeToEvents) {
-						Unregister-ToastNotificationEvents -ResultVariable $functionResultVariable
-					}
-
-					#  Clear any previous displayed Toast Notification
-					Clear-ToastNotificationHistory -Group $ToastNotificationGroup
+				#  Loops until Toast Notification result
+				if ($ToastNotificationVisible) {
+					Invoke-Command -ScriptBlock $ToastNotificationLoopUntilResult -NoNewScope
 				}
 			}
 		}
-		else {
-			#  Fallback to original function
-			Invoke-Command -ScriptBlock $FallbackToOriginalFunction -NoNewScope
-		}
 
-		# Restore minimized windows
+		#  Restore minimized windows
 		$null = $shellApp.UndoMinimizeAll()
 
 		if ($deployAppScriptFriendlyName) {
-			if ([string]::IsNullOrWhiteSpace((Get-Variable -Name $functionResultVariable -Scope Global -ValueOnly))) {
-				Write-Log -Message "Something strange happended to the Toast Notification, exiting function with 'Timeout'." -Severity 3 -Source ${CmdletName}
-				Set-Variable -Name $functionResultVariable -Scope Global -Value "Timeout" -Force
+			## Fallback to original function
+			Invoke-Command -ScriptBlock $ToastNotificationFallbackToOriginalFunction -NoNewScope
+
+			switch ($Result) {
+				"Left" { $Result = $buttonLeftText }
+				"Middle" { $Result = $buttonMiddleText }
+				"Right" { $Result = $buttonRightText }
 			}
 
-			$ToastNotificationResult = Get-Variable -Name $functionResultVariable -Scope Global -ValueOnly
-			Remove-Variable -Name $functionResultVariable -Scope Global -Force
+			if ($Result -ne "Timeout") {
+				Write-Log -Message "Exiting function [${CmdletName}] with result [$Result]." -Severity 2 -Source ${CmdletName} -DebugMessage
 
-			switch ($ToastNotificationResult) {
-				"Left" { return $buttonLeftText }
-				"Middle" { return $buttonMiddleText }
-				"Right" { return $buttonRightText }
-				Default {
-					if ($ExitOnTimeout) {
-						Exit-Script -ExitCode $configInstallationUIExitCode
-					}
-					else {
-						Write-Log -Message "Toast Notification timed out but `$ExitOnTimeout set to `$false. Continue..." -Source ${CmdletName}
-					}
+				return $Result
+			}
+			else {
+				if ($ExitOnTimeout) {
+					Write-Log -Message "Function [${CmdletName}] timed out, exit script with exit code [$configInstallationUIExitCode]." -Severity 2 -Source ${CmdletName}
+					Exit-Script -ExitCode $configInstallationUIExitCode
+				}
+				else {
+					Write-Log -Message "Function [${CmdletName}] timed out but `$ExitOnTimeout set to `$false. Continue..." -Severity 2 -Source ${CmdletName}
 				}
 			}
 		}
@@ -3960,6 +3300,7 @@ Function Show-InstallationProgress {
 		Part of Toast Notification Extension
 	.LINK
 		https://github.com/LFM8787/PSADT.ToastNotification
+		https://psappdeploytoolkit.com
 		http://psappdeploytoolkit.com
 	#>
 	[CmdletBinding()]
@@ -3980,22 +3321,20 @@ Function Show-InstallationProgress {
 		[string]${CmdletName} = $PSCmdlet.MyInvocation.MyCommand.Name
 		Write-FunctionHeaderOrFooter -CmdletName ${CmdletName} -CmdletBoundParameters $PSBoundParameters -Header
 
-		## Load required assemblies
-		Invoke-Command -ScriptBlock $LoadRequiredToastNotificationAssemblies -NoNewScope
-
 		## Define function variables
 		$ToastNotificationGroup = "InstallationProgress"
 		$configFunctionOptions = Get-Variable -Name "configToastNotification$($ToastNotificationGroup)Options" -ValueOnly
+		$ResultVariable = "$($ToastNotificationGroup)_$([System.Diagnostics.Process]::GetCurrentProcess().Id)_Result"
 		$ResourceFolder = $configToastNotificationGeneralOptions.ResourceFolder
 	}
 	Process {
-		##  Bypass if in silent mode
+		## Bypass if in silent mode
 		if ($deployModeSilent) {
-			Write-Log -Message "Bypassing Show-InstallationProgress [Mode: $deployMode]. Status message:$StatusMessage" -Source ${CmdletName}
+			Write-Log -Message "Bypassing function [${CmdletName}], because DeployMode [$deployMode]. Status message: $StatusMessage" -Severity 2 -Source ${CmdletName}
 			return
 		}
 		else {
-			Write-Log -Message "Displaying Installation Progress with message: $StatusMessage" -Source ${CmdletName}
+			Write-Log -Message "Executing function [${CmdletName}]. Status message: $StatusMessage" -Severity 2 -Source ${CmdletName}
 			New-Variable -Name "InstallationProgressFunctionCalled" -Value $true -Scope Global -Force
 		}
 
@@ -4016,12 +3355,13 @@ Function Show-InstallationProgress {
 			"Install" { $configProgressMessageInstall }
 			"Uninstall" { $configProgressMessageUninstall }
 			"Repair" { $configProgressMessageRepair }
-			Default { $configProgressMessageInstall }
+			default { $configProgressMessageInstall }
 		}
 
+
 		#region Function reusable ScriptBlocks
-		## Creates the Toast Notification template
-		[scriptblock]$ConstructToastNotificationTemplate = {
+		## Defines the Toast Notification template
+		[scriptblock]$DefineToastNotificationTemplate = {
 			$XMLTemplate = @()
 			$XMLTemplate += '<toast duration="long">'
 			$XMLTemplate += '<visual baseUri="file://{0}\">' -f ( <#0#> [Security.SecurityElement]::Escape($ResourceFolder))
@@ -4081,7 +3421,7 @@ Function Show-InstallationProgress {
 				#  Add group showing the message(s)
 				$XMLTemplate += '<group>'
 				$XMLTemplate += '<subgroup hint-textStacking="center">'
-				<# 
+				<#
 				$StatusMessageLines | ForEach-Object {
 					$XMLTemplate += '<text hint-wrap="true" hint-style="{0}">{1}</text>' -f ( $_.StatusMessageStyle), ( [Security.SecurityElement]::Escape($_.StatusMessageLine))
 				}
@@ -4105,155 +3445,54 @@ Function Show-InstallationProgress {
 			$XMLTemplate += '</toast>'
 		}
 
+		## Sets the Toast Notification initial Notification Data
+		[scriptblock]$SetToastNotificationInitialNotificationData = {
+			#  Initial Notification Data
+			$InitialDictionaryData = Invoke-Command -ScriptBlock $ToastNotificationNewDictionaryData
 
-		## Creates the Toast Notification object using the Toast Notification template
-		[scriptblock]$ConstructToastNotificationObject = {
-			try {
-				#  Construct Toast Notification template
-				Invoke-Command -ScriptBlock $ConstructToastNotificationTemplate -NoNewScope
-
-				#  Save template for debugging
-				($scriptSeparator, $XMLTemplate, $scriptSeparator) | ForEach-Object { Write-Log -Message $_ -Source ${CmdletName} -DebugMessage }
-
-				#  Trying to parse the ToastNotification template as XML
-				$XMLObject = New-Object Windows.Data.Xml.Dom.XmlDocument
-				$XMLObject.LoadXml($XMLTemplate)
-
-				#  Initial NotificationData
-				$Dictionary = [System.Collections.Generic.Dictionary[String, String]]::New()
-				if ($configFunctionOptions.ShowAttributionText -or $ShowMessageGroup) {
-					$AttributionText = $deploymentTypeProgressMessage
-				}
-				else {
-					$AttributionText = " "
-				}
-				$Dictionary.Add("attributionText", [Security.SecurityElement]::Escape($AttributionText))
-
-				## New ToastNotification object
-				$ToastNotificationObject = [Windows.UI.Notifications.ToastNotification]::New($XMLObject)
-				$ToastNotificationObject.Tag = $configToastNotificationGeneralOptions.TaggingVariable
-				$ToastNotificationObject.Group = $ToastNotificationGroup
-				$ToastNotificationObject.Data = [Windows.UI.Notifications.NotificationData]::New($Dictionary)
-				$ToastNotificationObject.Data.SequenceNumber = 1
-			}
-			catch {
-				Write-Log -Message "Unable to create Toast Notification object. Falling back to original function...`r`n$(Resolve-Error)" -Severity 3 -Source ${CmdletName}
-
-				#  Fallback to original function
-				$CreateToastNotifier = $false
-			}
-		}
-
-		## Shows the Toast Notification
-		[scriptblock]$ShowToastNotification = {
-			#  Reset global result variable and remove any result file
-			$CreateToastNotifier = $true
-
-			#  Clear any previous registered Toast Notification Background job
-			Invoke-Command -ScriptBlock $RemoveToastNotificationBackgroundJob -NoNewScope
-
-			#  Clear any previous displayed Toast Notification
-			Clear-ToastNotificationHistory -Group $ToastNotificationGroup
-
-			#  Generate Toast Notification object
-			Invoke-Command -ScriptBlock $ConstructToastNotificationObject -NoNewScope
-
-			#  Attempt to show the new Toast Notification
-			if ($CreateToastNotifier) {
-				try {
-					$null = [Windows.UI.Notifications.ToastNotificationManager]::CreateToastNotifier($configToastNotificationAppId.AppId).Show($ToastNotificationObject)
-				}
-				catch {
-					Write-Log -Message "Unable to show Toast Notification. Falling back to original function...`r`n$(Resolve-Error)" -Severity 3 -Source ${CmdletName}
-
-					#  Fallback to original function
-					Invoke-Command -ScriptBlock $FallbackToOriginalFunction -NoNewScope
-				}
+			if ($configFunctionOptions.ShowAttributionText -or $ShowMessageGroup) {
+				$AttributionText = $deploymentTypeProgressMessage
 			}
 			else {
-				#  Fallback to original function
-				Invoke-Command -ScriptBlock $FallbackToOriginalFunction -NoNewScope
-			}
-		}
-
-		## Remove Toast Notification Background Job
-		[scriptblock]$RemoveToastNotificationBackgroundJob = {
-			$ToastNotificationBackgroundJob = Get-Job | Where-Object { $_.Name -like "PSADT.ToastNotificationInstallationProgressJob*" }
-			try {
-				$null = $ToastNotificationBackgroundJob | Stop-Job
-				$null = $ToastNotificationBackgroundJob | Remove-Job -Force
-			}
-			catch {}
-		}
-
-		## Register Toast Notification Background Job
-		[scriptblock]$RegisterToastNotificationBackgroundJob = {
-			$null = Start-Job -Name "PSADT.ToastNotificationInstallationProgressJob" -ScriptBlock {
-				## Load required assemblies
-				$null = [Windows.UI.Notifications.ToastNotificationManager, Windows.UI.Notifications, ContentType = WindowsRuntime]
-				$null = [Windows.UI.Notifications.NotificationData, Windows.UI.Notifications, ContentType = WindowsRuntime]
-
-				## Loop that try to keep the Toast Notification visible in background
-				do {
-					#  Update NotificationData
-					$Dictionary = [System.Collections.Generic.Dictionary[String, String]]::New()
-					$Dictionary.Add("attributionText", [Security.SecurityElement]::Escape("$($Using:AttributionText)$(" "*(Get-Random -Minimum 1 -Maximum 6))"))
-
-					#  Update ToastNotification object
-					$NotificationData = [Windows.UI.Notifications.NotificationData]::New($Dictionary)
-					$NotificationData.SequenceNumber = 2
-					$null = [Windows.UI.Notifications.ToastNotificationManager]::CreateToastNotifier($Using:configToastNotificationAppId.AppId).Update($NotificationData, $Using:configToastNotificationGeneralOptions.TaggingVariable, $Using:ToastNotificationGroup)
-
-					#  Wait a few seconds before reupdate
-					Start-Sleep -Seconds $Using:configFunctionOptions.UpdateInterval
-				}
-				while ({ [Windows.UI.Notifications.ToastNotificationManager]::History.GetHistory($Using:configToastNotificationAppId.AppId) | Where-Object { $_.Group -eq $Using:ToastNotificationGroup -and $_.Tag -eq $Using:configToastNotificationGeneralOptions.TaggingVariable } | ForEach-Object { return $true } })
-			}
-		}
-
-		## Fallback to original function if any problem occur
-		[scriptblock]$FallbackToOriginalFunction = {
-			if (-not $OriginalFunctionTriggered) {
-				Show-InstallationProgressOriginal @PSBoundParameters
+				$AttributionText = " "
 			}
 
-			$OriginalFunctionTriggered = $true
+			$InitialDictionaryData.attributionText = [Security.SecurityElement]::Escape($AttributionText)
 		}
-		#endregion Function reusable ScriptBlocks
+
+		## Update Toast Notification if necessary
+		[scriptblock]$UpdateToastNotificationData = {
+			$DictionaryData = Invoke-Command -ScriptBlock $ToastNotificationNewDictionaryData
+
+			$DictionaryData.attributionText = [Security.SecurityElement]::Escape($AttributionText)
+
+			$ToastNotificationUpdateParameters = @{
+				InvokedMethod  = "BackgroundKeep"
+				Group          = $ToastNotificationGroup
+				UpdateInterval = $configFunctionOptions.UpdateInterval
+				DictionaryData = $DictionaryData
+			}
+
+			$null = Invoke-ToastNotificationAsUser @ToastNotificationUpdateParameters
+		}
+		#endregion
 
 
 		## Create Working Directory temp folder to use
-		if (-not (Test-Path -Path $ResourceFolder -PathType Container)) {
-			try {
-				New-Folder -Path $ResourceFolder -ContinueOnError $false
-				$null = Remove-FolderAfterReboot -Path $ResourceFolder -ContinueOnError $true -DisableFunctionLogging
-			}
-			catch {
-				Write-Log -Message "Unable to create Toast Notification resource folder. Falling back to original function...`r`n$(Resolve-Error)" -Severity 3 -Source ${CmdletName}
+		$ResourceFolderCreated = New-ToastNotificationResourceFolder -ResourceFolder $ResourceFolder
 
-				#  Fallback to original function
-				Invoke-Command -ScriptBlock $FallbackToOriginalFunction -NoNewScope
-			}
-		}
+		if ($ResourceFolderCreated) {
+			## Test if the Toast Notification can be shown
+			$ToastNotificationExtensionTestResult = Test-ToastNotificationExtension
 
-		## Test if the Toast Notification can be shown
-		if (-not $OriginalFunctionTriggered) {
-			$TestToastNotificationShowResult = Test-ToastNotificationExtension -CheckProtocol
-		}
-
-		if ($TestToastNotificationShowResult -and (Test-Path -Path $ResourceFolder -PathType Container)) {
-			Invoke-Command -ScriptBlock $ShowToastNotification -NoNewScope
-
-			$ToastNotificationVisible = Test-ToastNotificationVisible -Group $ToastNotificationGroup
-			if ($ToastNotificationVisible) {
-				Invoke-Command -ScriptBlock $RemoveToastNotificationBackgroundJob -NoNewScope
-				Invoke-Command -ScriptBlock $RegisterToastNotificationBackgroundJob -NoNewScope
+			if ($ToastNotificationExtensionTestResult) {
+				#  Create and show the Toast Notification
+				Invoke-Command -ScriptBlock $ToastNotificationShowScriptBlock -NoNewScope
 			}
 		}
-		else {
-			#  Fallback to original function
-			Invoke-Command -ScriptBlock $FallbackToOriginalFunction -NoNewScope
-		}
+
+		## Fallback to original function
+		Invoke-Command -ScriptBlock $ToastNotificationFallbackToOriginalFunction -NoNewScope
 	}
 	End {
 		Write-FunctionHeaderOrFooter -CmdletName ${CmdletName} -Footer
@@ -4286,6 +3525,7 @@ Function Close-InstallationProgress {
 		Part of Toast Notification Extension
 	.LINK
 		https://github.com/LFM8787/PSADT.ToastNotification
+		https://psappdeploytoolkit.com
 		http://psappdeploytoolkit.com
 	#>
 	[CmdletBinding()]
@@ -4302,22 +3542,9 @@ Function Close-InstallationProgress {
 	}
 	Process {
 		if (-not $Global:InstallationProgressFunctionCalled) {
-			Write-Log -Message "Bypassing Close-InstallationProgress, no call to Show-InstallationProgress function registered." -Source ${CmdletName} -DebugMessage
+			Write-Log -Message "Bypassing function [${CmdletName}], no call to Show-InstallationProgress function registered." -Source ${CmdletName} -DebugMessage
 			return
 		}
-
-		## Clear any previous registered Toast Notification Events jobs
-		if ($configToastNotificationGeneralOptions.SubscribeToEvents) {
-			Unregister-ToastNotificationEvents -ResultVariable "*"
-		}
-
-		## Remove Toast Notification Background Job
-		$ToastNotificationBackgroundJob = Get-Job | Where-Object { $_.Name -like "PSADT.ToastNotificationInstallationProgressJob*" }
-		try {
-			$null = $ToastNotificationBackgroundJob | Stop-Job
-			$null = $ToastNotificationBackgroundJob | Remove-Job -Force
-		}
-		catch {}
 
 		## Clear any previous displayed Toast Notification
 		Clear-ToastNotificationHistory -Group "InstallationProgress"
@@ -4356,6 +3583,7 @@ Function New-BlockExecutionToastNotificationTemplate {
 		Part of Toast Notification Extension
 	.LINK
 		https://github.com/LFM8787/PSADT.ToastNotification
+		https://psappdeploytoolkit.com
 		http://psappdeploytoolkit.com
 	#>
 	[CmdletBinding()]
@@ -4378,8 +3606,8 @@ Function New-BlockExecutionToastNotificationTemplate {
 	}
 	Process {
 		#region Function reusable ScriptBlocks
-		## Creates the Toast Notification template
-		[scriptblock]$ConstructToastNotificationTemplate = {
+		## Defines the Toast Notification template
+		[scriptblock]$DefineToastNotificationTemplate = {
 			$XMLTemplate = @()
 			$XMLTemplate += '<toast duration="long">'
 			$XMLTemplate += '<visual baseUri="file://{0}\">' -f ( <#0#> [Security.SecurityElement]::Escape($ResourceFolder))
@@ -4431,7 +3659,7 @@ Function New-BlockExecutionToastNotificationTemplate {
 			$XMLTemplate += '<!-- blocked_process -->'
 
 			$XMLTemplate += '<group>'
-			
+
 			if (-not $configFunctionOptions.ShowDialogIconAsAppLogoOverride -or -not $configFunctionOptions.ImageAppLogoOverrideShow) {
 				#  Extract dialog icon from Windows library
 				[IO.FileInfo]$IconPath = Join-Path -Path $ResourceFolder -ChildPath "$($ToastNotificationGroup)_Lock.png"
@@ -4509,9 +3737,6 @@ Function New-BlockExecutionToastNotificationTemplate {
 				$XMLTemplate += '</subgroup>'
 				$XMLTemplate += '</group>'
 			}
-			else {
-
-			}
 
 			$XMLTemplate += '</binding>'
 			$XMLTemplate += '</visual>'
@@ -4521,18 +3746,18 @@ Function New-BlockExecutionToastNotificationTemplate {
 
 			$XMLTemplate += '</toast>'
 		}
-		#endregion Function reusable ScriptBlocks
+		#endregion
 
 
 		## Construct and save Toast Notification template
 		try {
 			#  Construct Toast Notification template
-			Invoke-Command -ScriptBlock $ConstructToastNotificationTemplate -NoNewScope
+			Invoke-Command -ScriptBlock $DefineToastNotificationTemplate -NoNewScope
 
 			#  Save template for debugging
 			($scriptSeparator, $XMLTemplate, $scriptSeparator) | ForEach-Object { Write-Log -Message $_ -Source ${CmdletName} -DebugMessage }
 
-			# Export the Toast Notification template to file
+			#  Export the Toast Notification template to file
 			$XMLTemplatePath = Join-Path -Path $ResourceFolder -ChildPath $configToastNotificationGeneralOptions.BlockExecution_TemplateFileName
 
 			$XMLTemplate | Out-File -FilePath $XMLTemplatePath -Force -ErrorAction Stop
@@ -4568,6 +3793,7 @@ Function Show-BlockExecutionToastNotification {
 		Part of Toast Notification Extension
 	.LINK
 		https://github.com/LFM8787/PSADT.ToastNotification
+		https://psappdeploytoolkit.com
 		http://psappdeploytoolkit.com
 	#>
 	[CmdletBinding()]
@@ -4579,13 +3805,11 @@ Function Show-BlockExecutionToastNotification {
 		[string]${CmdletName} = $PSCmdlet.MyInvocation.MyCommand.Name
 		Write-FunctionHeaderOrFooter -CmdletName ${CmdletName} -CmdletBoundParameters $PSBoundParameters -Header
 
-		## Load required assemblies
-		Invoke-Command -ScriptBlock $LoadRequiredToastNotificationAssemblies -NoNewScope
-
 		## Define function variables
 		$ToastNotificationGroup = "BlockExecution"
 		$configFunctionOptions = Get-Variable -Name "configToastNotification$($ToastNotificationGroup)Options" -ValueOnly
-		$ResourceFolder = Join-Path -Path $scriptParentPath -ChildPath "BlockExecution"
+		$ResultVariable = "$($ToastNotificationGroup)_$([System.Diagnostics.Process]::GetCurrentProcess().Id)_Result"
+		$ResourceFolder = $scriptRoot
 	}
 	Process {
 		## Check if previously generated Toast Notification template exists
@@ -4595,12 +3819,14 @@ Function Show-BlockExecutionToastNotification {
 			Write-Log -Message "Unable to locate Toast Notification template. Falling back to original function...`r`n$(Resolve-Error)" -Severity 3 -Source ${CmdletName}
 
 			#  Fallback to original function
-			Invoke-Command -ScriptBlock $FallbackToOriginalFunction -NoNewScope
+			Invoke-Command -ScriptBlock $ToastNotificationFallbackToOriginalFunction -NoNewScope
+			return
 		}
 
+
 		#region Function reusable ScriptBlocks
-		## Gets the Toast Notification template
-		[scriptblock]$GetToastNotificationTemplate = {
+		## Defines the Toast Notification template
+		[scriptblock]$DefineToastNotificationTemplate = {
 			try {
 				#  Trying to parse the ToastNotification template as XML
 				$XMLTemplate = Get-Content -Path $XMLTemplatePath -Raw
@@ -4608,8 +3834,7 @@ Function Show-BlockExecutionToastNotification {
 				if ($? -and $XMLTemplate.Length -eq 0) {
 					Write-Log -Message "The Toast Notification template is empty." -Severity 2 -Source ${CmdletName}
 
-					#  Fallback to original function
-					$CreateToastNotifier = $false
+					$XMLTemplate = $null
 				}
 				elseif (-not [string]::IsNullOrWhiteSpace($ReferredInstallName)) {
 					#  Parse process template
@@ -4617,10 +3842,9 @@ Function Show-BlockExecutionToastNotification {
 				}
 			}
 			catch {
-				Write-Log -Message "Unable to read Toast Notification template. Falling back to original function...`r`n$(Resolve-Error)" -Severity 3 -Source ${CmdletName}
+				Write-Log -Message "Unable to read Toast Notification template.`r`n$(Resolve-Error)" -Severity 3 -Source ${CmdletName}
 
-				#  Fallback to original function
-				$CreateToastNotifier = $false
+				$XMLTemplate = $null
 			}
 		}
 
@@ -4697,106 +3921,26 @@ Function Show-BlockExecutionToastNotification {
 			#  Add current blocked application details
 			$XMLTemplate = $XMLTemplate -replace "<!-- blocked_process -->", ($ProcessTemplate -join "")
 		}
+		#endregion
 
-		## Creates the Toast Notification object using the Toast Notification template
-		[scriptblock]$ConstructToastNotificationObject = {
-			try {
-				#  Construct Toast Notification template
-				Invoke-Command -ScriptBlock $GetToastNotificationTemplate -NoNewScope
 
-				#  Save template for debugging
-				($scriptSeparator, $XMLTemplate, $scriptSeparator) | ForEach-Object { Write-Log -Message $_ -Source ${CmdletName} -DebugMessage }
+		## Test if the Toast Notification can be shown
+		$ToastNotificationExtensionTestResult = Test-ToastNotificationExtension
 
-				#  Trying to parse the ToastNotification template as XML
-				$XMLObject = New-Object Windows.Data.Xml.Dom.XmlDocument
-				$XMLObject.LoadXml($XMLTemplate)
-
-				#  New ToastNotification object
-				$ToastNotificationObject = [Windows.UI.Notifications.ToastNotification]::New($XMLObject)
-				$ToastNotificationObject.Tag = $configToastNotificationGeneralOptions.TaggingVariable
-				$ToastNotificationObject.Group = $ToastNotificationGroup
-			}
-			catch {
-				Write-Log -Message "Unable to create Toast Notification object. Falling back to original function...`r`n$(Resolve-Error)" -Severity 3 -Source ${CmdletName}
-
-				#  Fallback to original function
-				$CreateToastNotifier = $false
-			}
-		}
-
-		## Shows the Toast Notification
-		[scriptblock]$ShowToastNotification = {
-			#  Reset global result variable and remove any result file
-			$CreateToastNotifier = $true
-
-			#  Clear any previous displayed Toast Notification
-			Clear-ToastNotificationHistory -Group $ToastNotificationGroup
-
-			## Generate Toast Notification object
-			Invoke-Command -ScriptBlock $ConstructToastNotificationObject -NoNewScope
-
-			#  Attempt to show the new Toast Notification
-			if ($CreateToastNotifier) {
-				try {
-					$null = [Windows.UI.Notifications.ToastNotificationManager]::CreateToastNotifier($configToastNotificationAppId.AppId).Show($ToastNotificationObject)
-				}
-				catch {
-					Write-Log -Message "Unable to show Toast Notification. Falling back to original function...`r`n$(Resolve-Error)" -Severity 3 -Source ${CmdletName}
-
-					#  Fallback to original function
-					Invoke-Command -ScriptBlock $FallbackToOriginalFunction -NoNewScope
-				}
-			}
-			else {
-				#  Fallback to original function
-				Invoke-Command -ScriptBlock $FallbackToOriginalFunction -NoNewScope
-			}
-		}
-
-		## Fallback to original function if any problem occur
-		[scriptblock]$FallbackToOriginalFunction = {
-			try {
-				#  Create a mutex and specify a name without acquiring a lock on the mutex
-				[boolean]$showBlockedAppDialogMutexLocked = $false
-				[string]$showBlockedAppDialogMutexName = "Global\PSADT_ShowBlockedAppDialog_Message"
-				[Threading.Mutex]$showBlockedAppDialogMutex = New-Object -TypeName "System.Threading.Mutex" -ArgumentList ($false, $showBlockedAppDialogMutexName)
-				#  Attempt to acquire an exclusive lock on the mutex, attempt will fail after 1 millisecond if unable to acquire exclusive lock
-				if ((Test-IsMutexAvailable -MutexName $showBlockedAppDialogMutexName -MutexWaitTimeInMilliseconds 1) -and ($showBlockedAppDialogMutex.WaitOne(1))) {
-					[boolean]$showBlockedAppDialogMutexLocked = $true
-					Show-InstallationPrompt -Title $installTitle -Message $configBlockExecutionMessage -Icon "Warning" -ButtonRightText "OK"
-				}
-				else {
-					#  If attempt to acquire an exclusive lock on the mutex failed, then exit script as another blocked app dialog window is already open
-					Write-Log -Message "Unable to acquire an exclusive lock on mutex [$showBlockedAppDialogMutexName] because another blocked application dialog window is already open. Exiting script..." -Severity 2 -Source ${CmdletName}
-				}
-			}
-			catch {
-				Write-Log -Message "There was an error in displaying the Installation Prompt.`r`n$(Resolve-Error)" -Severity 3 -Source ${CmdletName}
-				[Environment]::Exit(60005)
-			}
-			finally {
-				if ($showBlockedAppDialogMutexLocked) { $null = $showBlockedAppDialogMutex.ReleaseMutex() }
-				if ($showBlockedAppDialogMutex) { $showBlockedAppDialogMutex.Close() }
-			}
-		}
-		#endregion Function reusable ScriptBlocks
-
-		$TestToastNotificationShowResult = Test-ToastNotificationExtension
-
-		if ($TestToastNotificationShowResult) {
+		if ($ToastNotificationExtensionTestResult) {
 			#  Clear Installation Progress Toast Notification since cannot show both at the same time
 			Clear-ToastNotificationHistory -Group "InstallationProgress"
 
-			Invoke-Command -ScriptBlock $ShowToastNotification -NoNewScope
+			#  Create and show the Toast Notification
+			Invoke-Command -ScriptBlock $ToastNotificationShowScriptBlock -NoNewScope
+		}
 
-			#  Wait for 25 seconds and dismiss Block Execution Toast Notification if visible
-			Start-Sleep -Seconds 25
-			Clear-ToastNotificationHistory -Group $ToastNotificationGroup
-		}
-		else {
-			#  Fallback to original function
-			Invoke-Command -ScriptBlock $FallbackToOriginalFunction -NoNewScope
-		}
+		## Fallback to original function
+		Invoke-Command -ScriptBlock $ToastNotificationFallbackToOriginalFunction -NoNewScope
+
+		## Wait for 25 seconds and dismiss Block Execution Toast Notification if visible
+		Start-Sleep -Seconds 25
+		Clear-ToastNotificationHistory -Group $ToastNotificationGroup
 	}
 	End {
 		Write-FunctionHeaderOrFooter -CmdletName ${CmdletName} -Footer
@@ -4836,6 +3980,7 @@ Function Block-AppExecution {
 		Part of Toast Notification Extension
 	.LINK
 		https://github.com/LFM8787/PSADT.ToastNotification
+		https://psappdeploytoolkit.com
 		http://psappdeploytoolkit.com
 	#>
 	[CmdletBinding()]
@@ -4854,7 +3999,7 @@ Function Block-AppExecution {
 	Process {
 		## Bypass if no Admin rights
 		if (-not $IsAdmin) {
-			Write-Log -Message "Bypassing Function [${CmdletName}], because administrator rights are needed." -Severity 2 -Source ${CmdletName}
+			Write-Log -Message "Bypassing function [${CmdletName}], administrator rights are needed." -Severity 2 -Source ${CmdletName}
 			return
 		}
 
@@ -4893,7 +4038,7 @@ Function Block-AppExecution {
 			Set-ItemPermission -Path $blockExecutionTempPath -User $Users -Permission Read -Inheritance "ObjectInherit", "ContainerInherit"
 		}
 		catch {
-			Write-Log -Message "Failed to set read permissions on path [$blockExecutionTempPath]. The function might not be able to work correctly." -Severity 2 -Source ${CmdletName}
+			Write-Log -Message "Failed to set Read permissions on path [$blockExecutionTempPath]. The function might not be able to work correctly." -Severity 2 -Source ${CmdletName}
 		}
 
 		## Remove illegal characters from the scheduled task arguments string
@@ -5013,6 +4158,7 @@ Function Unblock-AppExecution {
 		Part of Toast Notification Extension
 	.LINK
 		https://github.com/LFM8787/PSADT.ToastNotification
+		https://psappdeploytoolkit.com
 		http://psappdeploytoolkit.com
 	#>
 	[CmdletBinding()]
@@ -5027,7 +4173,7 @@ Function Unblock-AppExecution {
 	Process {
 		## Bypass if no Admin rights
 		if (-not $IsAdmin) {
-			Write-Log -Message "Bypassing Function [${CmdletName}], because administrator rights are needed." -Source ${CmdletName}
+			Write-Log -Message "Bypassing function [${CmdletName}], administrator rights are needed." -Source ${CmdletName}
 			return
 		}
 
@@ -5047,7 +4193,7 @@ Function Unblock-AppExecution {
 		## Deletes the scheduled task and temporary files if no blocked processes remain
 		Invoke-Command -ScriptBlock $GetBlockedProcesses -NoNewScope
 
-		## Scheduled Task names
+		#  Scheduled Task names
 		[char[]]$invalidScheduledTaskChars = '$', '!', '''', '"', '(', ')', ';', '\', '`', '*', '?', '{', '}', '[', ']', '<', '>', '|', '&', '%', '#', '~', '@', ' '
 		[string]$SchInstallName = $installName
 		foreach ($invalidChar in $invalidScheduledTaskChars) { $SchInstallName = $SchInstallName -replace [regex]::Escape($invalidChar), "" }
@@ -5055,25 +4201,25 @@ Function Unblock-AppExecution {
 		$schTaskRenameBlockedAppsName = "Restore_Image_File_Execution_Options_PSADTbackup"
 
 		if ($null -eq $unblockProcesses) {
-			## If block execution variable is $true, set it to $false
+			#  If block execution variable is $true, set it to $false
 			if ($BlockExecution) {
 				#  Make this variable globally available so we can check whether we need to call Unblock-AppExecution
 				Set-Variable -Name "BlockExecution" -Value $false -Scope Script
 			}
 
-			## Remove BlockAppExecution Schedule Task XML file
+			#  Remove BlockAppExecution Schedule Task XML file
 			[IO.FileInfo]$xmlSchTaskFilePath = "$dirAppDeployTemp\SchTaskUnBlockApps.xml"
 			if ($xmlSchTaskFilePath.Exists) {
 				Remove-Item -Path $xmlSchTaskFilePath
 			}
 
-			## Remove BlockAppExection Temporary directory
+			#  Remove BlockAppExection Temporary directory
 			[IO.FileInfo]$blockExecutionTempPath = Join-Path -Path $dirAppDeployTemp -ChildPath "BlockExecution"
 			if (Test-Path -LiteralPath $blockExecutionTempPath -PathType Container) {
 				Remove-Folder -Path $blockExecutionTempPath
 			}
 
-			## Get scheduled tasks
+			#  Get scheduled tasks
 			try {
 				$ScheduledTasks = Get-SchedulerTask -ContinueOnError $true
 			}
@@ -5081,7 +4227,7 @@ Function Unblock-AppExecution {
 				Write-Log -Message "Error retrieving scheduled tasks.`r`n$(Resolve-Error)" -Severity 3 -Source ${CmdletName}
 			}
 
-			## Remove the unblock scheduled task if it exists
+			#  Remove the unblock scheduled task if it exists
 			try {
 				if ($ScheduledTasks | ForEach-Object { if ($_.TaskName -eq "\$schTaskBlockedAppsName") { $_.TaskName } }) {
 					Write-Log -Message "Deleting Scheduled Task [$schTaskBlockedAppsName]." -Source ${CmdletName}
@@ -5092,7 +4238,7 @@ Function Unblock-AppExecution {
 				Write-Log -Message "Error deleting [$schTaskBlockedAppsName] Scheduled Task.`r`n$(Resolve-Error)" -Severity 3 -Source ${CmdletName}
 			}
 
-			## Remove the restore scheduled task if it exists
+			#  Remove the restore scheduled task if it exists
 			try {
 				if ($ScheduledTasks | ForEach-Object { if ($_.TaskName -eq "\$schTaskRenameBlockedAppsName") { $_.TaskName } }) {
 					Start-ScheduledTask -TaskName $schTaskRenameBlockedAppsName
@@ -5114,6 +4260,892 @@ Function Unblock-AppExecution {
 			)
 			$null = Set-ScheduledTask -TaskName $schTaskBlockedAppsName -Trigger $Triggers -ErrorAction SilentlyContinue
 		}
+	}
+	End {
+		Write-FunctionHeaderOrFooter -CmdletName ${CmdletName} -Footer
+	}
+}
+#endregion
+
+
+#region Function New-ToastNotificationParameters
+Function New-ToastNotificationParameters {
+	<#
+	.SYNOPSIS
+		Constructs the variables array used by the user invokation function.
+	.DESCRIPTION
+		Constructs the variables array used by the user invokation function.
+	.PARAMETER ResultVariable
+		Result variable of the user environment where the result of the actions will be written.
+	.PARAMETER Group
+		Group variable used to identify different instances.
+	.PARAMETER UpdateInterval
+		Update interval in seconds.
+	.PARAMETER DictionaryData
+		Hashtable with notification data.
+	.PARAMETER PoshWinRTLibraryPath
+		Path to the PshWinRT Library.
+	.INPUTS
+		None
+		You cannot pipe objects to this function.
+	.OUTPUTS
+		None
+		This function does not generate any output.
+	.NOTES
+		This is an internal script function and should typically not be called directly.
+		Author: Leonardo Franco Maragna
+		Part of Toast Notification Extension
+	.LINK
+		https://github.com/LFM8787/PSADT.ToastNotification
+		https://psappdeploytoolkit.com
+		http://psappdeploytoolkit.com
+	#>
+	[CmdletBinding()]
+	Param (
+		[Parameter(Mandatory = $false)]
+		[ValidateNotNullorEmpty()]
+		[string]$ResultVariable,
+		[Parameter(Mandatory = $false)]
+		[ValidateNotNullorEmpty()]
+		[string]$Group,
+		[Parameter(Mandatory = $false)]
+		[ValidateNotNullorEmpty()]
+		[int32]$UpdateInterval,
+		[Parameter(Mandatory = $false)]
+		[PSCustomObject]$DictionaryData,
+		[Parameter(Mandatory = $false)]
+		[IO.FileInfo]$PoshWinRTLibraryPath
+	)
+
+	Begin {
+		## Get the name of this function and write header
+		[string]${CmdletName} = $PSCmdlet.MyInvocation.MyCommand.Name
+		Write-FunctionHeaderOrFooter -CmdletName ${CmdletName} -CmdletBoundParameters $PSBoundParameters -Header
+	}
+	Process {
+		## Parameters used by Toast Notification invoked scriptblocks
+		#  Toast Notification general variables
+		$Parameters = @(
+			"`$AppUserModelId = `"$($configToastNotificationAppId.AppId)`"",
+			"`$Tag = `"$($configToastNotificationGeneralOptions.TaggingVariable)`""
+		)
+
+		#  Aditional general variables
+		if ($Group -in ("WelcomePrompt", "DialogBox", "InstallationRestartPrompt", "InstallationPrompt")) {
+			$Parameters += "[bool]`$SubscribeToEvents = [boolean]::Parse(`"$($configToastNotificationGeneralOptions.SubscribeToEvents)`")"
+		}
+		if ($PoshWinRTLibraryPath) {
+			$Parameters += @(
+				"`$PSVersionMajor = `$PSVersionTable.PSVersion.Major",
+				"[IO.FileInfo]`$PoshWinRTLibraryPath = `"$($PoshWinRTLibraryPath)`""
+			)
+		}
+
+		#  Toast Notification function specific variables
+		if ($Group) {
+			$Parameters += "`$Group = `"$($Group)`""
+		}
+		if ($ResultVariable) {
+			$Parameters += "`$ResultVariable = `"$($ResultVariable)`""
+		}
+		if ($UpdateInterval) {
+			$Parameters += "`$UpdateInterval = $($UpdateInterval)"
+		}
+
+		#  Toast Notification update data variables
+		if ($DictionaryData) {
+			$Parameters += @(
+				"`$DictionaryDataRegexPattern = `"(?<type>[\S]+) (?<property>[\S]+)=(?<value>.+)`"",
+				"`$DictionaryData = `"$(($DictionaryData | Get-Member -MemberType NoteProperty | Select-Object -ExpandProperty Definition) -join "_item-separator_")`""
+			)
+		}
+
+		return ($Parameters -join ";")
+	}
+	End {
+		Write-FunctionHeaderOrFooter -CmdletName ${CmdletName} -Footer
+	}
+}
+#endregion
+
+
+#region Function Invoke-ToastNotificationAsUser
+Function Invoke-ToastNotificationAsUser {
+	<#
+	.SYNOPSIS
+		Shows and Updates the Toast Notification as active user.
+	.DESCRIPTION
+		Shows and Updates the Toast Notification as active user.
+	.PARAMETER ResultVariable
+		Result variable of the user environment where the result of the actions will be written.
+	.PARAMETER Group
+		Group variable used to identify different instances.
+	.PARAMETER ToastNotificationTemplate
+		Toast Notification template as an array.
+	.PARAMETER AllowedResults
+		Allowed Toast Notification action results.
+	.PARAMETER DismissedResults
+		Results considered dismissed by the user.
+	.PARAMETER UpdateInterval
+		Update interval in seconds.
+	.PARAMETER DictionaryData
+		Hashtable with notification data.
+	.PARAMETER InvokedMethod
+		Different invoke method types.
+	.INPUTS
+		None
+		You cannot pipe objects to this function.
+	.OUTPUTS
+		System.String
+		Can be the Process Id of the invoked method or any result in the arrays.
+	.NOTES
+		This is an internal script function and should typically not be called directly.
+		Author: Leonardo Franco Maragna
+		Part of Toast Notification Extension
+	.LINK
+		https://github.com/LFM8787/PSADT.ToastNotification
+		https://psappdeploytoolkit.com
+		http://psappdeploytoolkit.com
+	#>
+	[CmdletBinding()]
+	Param (
+		[Parameter(Mandatory = $false)]
+		[ValidateNotNullorEmpty()]
+		[string]$ResultVariable,
+		[Parameter(Mandatory = $false)]
+		[ValidateNotNullorEmpty()]
+		[string]$Group,
+		[Parameter(Mandatory = $false)]
+		[ValidateNotNullorEmpty()]
+		[array]$ToastNotificationTemplate,
+		[Parameter(Mandatory = $false)]
+		[array]$AllowedResults,
+		[Parameter(Mandatory = $false)]
+		[ValidateNotNullorEmpty()]
+		[array]$DismissedResults,
+		[Parameter(Mandatory = $false)]
+		[ValidateNotNullorEmpty()]
+		[int32]$UpdateInterval,
+		[Parameter(Mandatory = $false)]
+		[PSCustomObject]$DictionaryData,
+		[ValidateSet("Show", "Update", "BackgroundKeep")]
+		[string]$InvokedMethod
+	)
+
+	Begin {
+		## Get the name of this function and write header
+		[string]${CmdletName} = $PSCmdlet.MyInvocation.MyCommand.Name
+		Write-FunctionHeaderOrFooter -CmdletName ${CmdletName} -CmdletBoundParameters $PSBoundParameters -Header
+	}
+	Process {
+		## Reusable ScriptBlocks bodies invoked as active user
+		[scriptblock]$InvokedToastNotificationShowBody = {
+			Function Set-ResultVariable {
+				<#
+				.SYNOPSIS
+					Sets a result value given as parameter to the result variable.
+				.DESCRIPTION
+					Sets a result value given as parameter to the result variable.
+					Used by all Toast Notification functions that require a result.
+				.PARAMETER ResultValue
+					Value assigned to the environment Result Variable.
+				.INPUTS
+					None
+					You cannot pipe objects to this function.
+				.OUTPUTS
+					None
+					This function does not generate any output.
+				.EXAMPLE
+					Test-ToastNotificationVisible -Group 'DialogBox'
+				.NOTES
+					This is an internal script function and should typically not be called directly.
+					Author: Leonardo Franco Maragna
+					Part of Toast Notification Extension
+				.LINK
+					https://github.com/LFM8787/PSADT.ToastNotification
+				#>
+				[CmdletBinding()]
+				Param (
+					[Parameter(Mandatory = $true, Position = 0, ValueFromPipeline = $true, ValueFromPipelineByPropertyName = $true)]
+					[string]$ResultValue
+				)
+
+				[Environment]::SetEnvironmentVariable($ResultVariable, $ResultValue, "User")
+			}
+			Function Test-ToastNotificationVisible {
+				<#
+				.SYNOPSIS
+					Determines if the previously raised notification is visible.
+				.DESCRIPTION
+					Determines if the previously raised notification is visible.
+					Used by all Toast Notification functions that raise a notification.
+				.PARAMETER AppUserModelId
+					Identifier of the application that raises the notification.
+				.PARAMETER Group
+					Group variable used to identify different instances.
+				.PARAMETER Tag
+					Tag variable used to identify different instances.
+				.INPUTS
+					None
+					You cannot pipe objects to this function.
+				.OUTPUTS
+					System.Boolean
+					Returns $true if the Toast Notification is visible.
+				.EXAMPLE
+					Test-ToastNotificationVisible -Group 'DialogBox'
+				.NOTES
+					This is an internal script function and should typically not be called directly.
+					Author: Leonardo Franco Maragna
+					Part of Toast Notification Extension
+				.LINK
+					https://github.com/LFM8787/PSADT.ToastNotification
+				#>
+				[CmdletBinding()]
+				Param (
+					[Parameter(Mandatory = $false)]
+					[ValidateNotNullorEmpty()]
+					[string]$Group
+				)
+
+				## Prepare a filter for Where-Object
+				[scriptblock]$whereObjectFilter = {
+					if (($Group -and $Tag)) { if (($_.Group -eq $Group) -and ($_.Tag -eq $Tag)) { return $true } }
+					elseif ($Group) { if ($_.Group -eq $Group) { return $true } }
+					elseif ($Tag) { if ($_.Tag -eq $Tag) { return $true } }
+					return $false
+				}
+
+				## Trying to determinate if the Toast Notification is visible
+				try {
+					$ToastNotificationVisible = [Windows.UI.Notifications.ToastNotificationManager]::History.GetHistory($AppUserModelId) | Where-Object -FilterScript $whereObjectFilter
+
+					if ($ToastNotificationVisible) {
+						return $true
+					}
+					else {
+						return $false
+					}
+				}
+				catch {
+					return $false
+				}
+			}
+			Function Register-WrappedToastNotificationEvent {
+				<#
+				.SYNOPSIS
+					Register a WinRT event by wrapping it in a compatible object.
+				.DESCRIPTION
+					Register a WinRT event by wrapping it in a compatible object.
+					Used by all Toast Notification functions that require a result.
+				.PARAMETER Target
+					Toast Notification object to which events will be wrapped.
+				.PARAMETER EventName
+					Triggering event.
+				.INPUTS
+					None
+					You cannot pipe objects to this function.
+				.OUTPUTS
+					None
+					This function does not generate any output.
+				.EXAMPLE
+					Register-WrappedToastNotificationEvent -Target $ToastNotificationObject -EventName 'Activated'
+				.NOTES
+					This is an internal script function and should typically not be called directly.
+					Author: Leonardo Franco Maragna
+					Part of Toast Notification Extension
+				.LINK
+					https://github.com/LFM8787/PSADT.ToastNotification
+				#>
+				[CmdletBinding()]
+				Param (
+					[Parameter(Mandatory = $true)]
+					[Windows.UI.Notifications.ToastNotification]$Target,
+					[Parameter(Mandatory = $true)]
+					[ValidateSet("Activated", "Dismissed", "Failed")]
+					[string]$EventName
+				)
+
+				## Wrap WinRT Event based in the event name
+				switch ($EventName) {
+					"Activated" { $EventType = "System.Object" }
+					"Dismissed" { $EventType = "Windows.UI.Notifications.ToastDismissedEventArgs" }
+					"Failed" { $EventType = "Windows.UI.Notifications.ToastFailedEventArgs" }
+				}
+
+				$EventWrapper = New-Object "PoshWinRT.EventWrapper[Windows.UI.Notifications.ToastNotification,$($EventType)]"
+				$EventWrapper.Register($Target, $EventName)
+			}
+			Function Register-ToastNotificationEvents {
+				<#
+				.SYNOPSIS
+					Registers the events triggered by the notification.
+				.DESCRIPTION
+					Registers the events triggered by the notification.
+					Used by all Toast Notification functions that require a result.
+				.PARAMETER ToastNotificationObject
+					Toast Notification object to which events will be registered.
+				.PARAMETER ResultVariable
+					Result variable of the user environment where the result of the actions will be written.
+				.INPUTS
+					None
+					You cannot pipe objects to this function.
+				.OUTPUTS
+					System.String
+					Returns a string with the esception if any error occur.
+				.EXAMPLE
+					Register-ToastNotificationEvents -ToastNotificationObject $ToastNotificationObject -ResultVariable 'DialogBox_1234_Result'
+				.NOTES
+					This is an internal script function and should typically not be called directly.
+					Author: Leonardo Franco Maragna
+					Part of Toast Notification Extension
+				.LINK
+					https://github.com/LFM8787/PSADT.ToastNotification
+				#>
+				[CmdletBinding()]
+				Param (
+					[Parameter(Mandatory = $true)]
+					[Windows.UI.Notifications.ToastNotification]$ToastNotificationObject,
+					[Parameter(Mandatory = $true)]
+					[ValidateNotNullorEmpty()]
+					[string]$ResultVariable
+				)
+
+				## Wrap WinRT event using PoshWinRt.dll
+				try {
+					if ([int]$PSVersionMajor -lt 7) {
+						$EventActivated = [PSCustomObject]@{ InputObject = Register-WrappedToastNotificationEvent -Target $ToastNotificationObject -EventName "Activated"; EventName = "FireEvent" }
+						$EventDismissed = [PSCustomObject]@{ InputObject = Register-WrappedToastNotificationEvent -Target $ToastNotificationObject -EventName "Dismissed"; EventName = "FireEvent" }
+						$EventFailed = [PSCustomObject]@{ InputObject = Register-WrappedToastNotificationEvent -Target $ToastNotificationObject -EventName "Failed"; EventName = "FireEvent" }
+					}
+					else {
+						$EventActivated = [PSCustomObject]@{ InputObject = $ToastNotificationObject; EventName = "Activated" }
+						$EventDismissed = [PSCustomObject]@{ InputObject = $ToastNotificationObject; EventName = "Dismissed" }
+						$EventFailed = [PSCustomObject]@{ InputObject = $ToastNotificationObject; EventName = "Failed" }
+					}
+				}
+				catch {
+					return "3:Register-ToastNotificationEvents,Unable to wrap Toast Notification WinRT Events: $($_.Exception.Message)"
+				}
+
+				## Trying to register the (wrapped) events
+				try {
+					#  Saves the result as user environment variable in the registry
+					$null = Register-ObjectEvent -SourceIdentifier "$($ResultVariable)_Activated" -InputObject $EventActivated.InputObject -MessageData $ResultVariable -EventName $EventActivated.EventName -Action {
+						$ResultVariable = $Event.MessageData
+
+						$ResultValue = [string]($Event.SourceArgs[1].Result.Arguments).Replace("$($ResultVariable)?", "")
+
+						[Environment]::SetEnvironmentVariable($ResultVariable, $ResultValue, "User")
+					}
+					$null = Register-ObjectEvent -SourceIdentifier "$($ResultVariable)_Dismissed" -InputObject $EventDismissed.InputObject -MessageData $ResultVariable -EventName $EventDismissed.EventName -Action {
+						$ResultVariable = $Event.MessageData
+
+						[string]$ResultValue = $Event.SourceArgs[1].Result.Reason
+
+						[Environment]::SetEnvironmentVariable($ResultVariable, $ResultValue, "User")
+					}
+					$null = Register-ObjectEvent -SourceIdentifier "$($ResultVariable)_Failed" -InputObject $EventFailed.InputObject -MessageData $ResultVariable -EventName $EventFailed.EventName -Action {
+						$ResultVariable = $Event.MessageData
+
+						[string]$ResultValue = $Event.SourceArgs[1].Result.ErrorCode
+
+						[Environment]::SetEnvironmentVariable($ResultVariable, $ResultValue, "User")
+					}
+				}
+				catch {
+					return "3:Register-ToastNotificationEvents,Unable to register Toast Notification Events: $($_.Exception.Message)"
+				}
+
+				## Verify if the Events were registered
+				$EventJobs = Get-Job | Where-Object { $_.Name -like "$($ResultVariable)_*" }
+
+				if (-not $EventJobs) {
+					return "3:Register-ToastNotificationEvents,No registered Toast Notification Events found."
+				}
+			}
+
+			## Trying to load required library
+			if ($SubscribeToEvents) {
+				if ([int]$PSVersionMajor -lt 7) {
+					if ($null -ne $PoshWinRTLibraryPath) {
+						try {
+							$null = [System.Reflection.Assembly]::Load([System.IO.File]::ReadAllBytes($PoshWinRTLibraryPath))
+						}
+						catch {
+							Set-ResultVariable "3:[Assembly]::Load(),Unable to load required library to subscribe to Toast Notification Events in Powershell versions below 7: $($_.Exception.Message)"
+							return
+						}
+					}
+					else {
+						Set-ResultVariable "3:[Assembly]::Load(),To subscribe to Toast Notification Events in Powershell versions below 7, the required PoshWinRT.dll library must be located under [..\SupportFiles\PSADT.ToastNotification\] directory."
+						return
+					}
+				}
+			}
+
+			## Trying to parse the Toast Notification template as XML
+			try {
+				$null = [Windows.Data.Xml.Dom.XmlDocument, Windows.Data.Xml.Dom.XmlDocument, ContentType = WindowsRuntime]
+				$XMLObject = [Windows.Data.Xml.Dom.XmlDocument]::New()
+				$XMLObject.LoadXml($XMLTemplate)
+			}
+			catch {
+				Set-ResultVariable "3:[XmlDocument]::New().LoadXml(),$($_.Exception.Message)"
+				return
+			}
+
+			## New Toast Notification object
+			try {
+				$null = [Windows.UI.Notifications.ToastNotification, Windows.UI.Notifications, ContentType = WindowsRuntime]
+				$ToastNotificationObject = [Windows.UI.Notifications.ToastNotification]::New($XMLObject)
+				$ToastNotificationObject.Tag = $Tag
+				$ToastNotificationObject.Group = $Group
+			}
+			catch {
+				Set-ResultVariable "3:[ToastNotification]::New(),$($_.Exception.Message)"
+				return
+			}
+
+			## Initial Notification Data
+			try {
+				$Dictionary = [System.Collections.Generic.Dictionary[String, String]]::New()
+
+				if (-not [string]::IsNullOrWhiteSpace($DictionaryData)) {
+					$DictionaryData -split "_item-separator_" | ForEach-Object {
+						if ($_ -match $DictionaryDataRegexPattern) {
+							if ($Matches["type"] -in ("double", "float", "single")) { $Value = "$($Matches["value"])" -replace ",", "." } else { $Value = "$($Matches["value"])" }
+							$Dictionary.Add("$($Matches["property"])", $Value)
+						}
+					}
+				}
+
+				$null = [Windows.UI.Notifications.NotificationData, Windows.UI.Notifications, ContentType = WindowsRuntime]
+				$ToastNotificationObject.Data = [Windows.UI.Notifications.NotificationData]::New($Dictionary)
+				$ToastNotificationObject.Data.SequenceNumber = 1
+			}
+			catch {
+				Set-ResultVariable "3:[NotificationData]::New(),$($_.Exception.Message)"
+				return
+			}
+
+			## Register Toast Notification Events
+			if ($SubscribeToEvents) {
+				$RegisterToastNotificationEventsResult = Register-ToastNotificationEvents -ToastNotificationObject $ToastNotificationObject -ResultVariable $ResultVariable
+
+				if ($RegisterToastNotificationEventsResult -like "3:*") {
+					Set-ResultVariable $RegisterToastNotificationEventsResult
+					return
+				}
+			}
+
+			## Show Toast Notification
+			try {
+				$null = [Windows.UI.Notifications.ToastNotificationManager, Windows.UI.Notifications, ContentType = WindowsRuntime]
+				$null = [Windows.UI.Notifications.ToastNotificationManager]::CreateToastNotifier($AppUserModelId).Show($ToastNotificationObject)
+
+				if ($? -and (Test-ToastNotificationVisible -Group $Group)) {
+					Set-ResultVariable "$([System.Diagnostics.Process]::GetCurrentProcess().Id)"
+
+					do {
+						Start-Sleep -Milliseconds ($UpdateInterval * 1000 / 2)
+					}
+					while (Test-ToastNotificationVisible -Group $Group)
+				}
+			}
+			catch {
+				Set-ResultVariable "3:[ToastNotificationManager]::CreateToastNotifier().Show(),$($_.Exception.Message)"
+				return
+			}
+		}
+
+		[scriptblock]$InvokedToastNotificationUpdateBody = {
+			## Update Notification Data
+			try {
+				$Dictionary = [System.Collections.Generic.Dictionary[String, String]]::New()
+
+				$DictionaryData -split "_item-separator_" | ForEach-Object {
+					if ($_ -match $DictionaryDataRegexPattern) {
+						if ($Matches["type"] -in ("double", "float", "single")) { $Value = "$($Matches["value"])" -replace ",", "." } else { $Value = "$($Matches["value"])" }
+						$Dictionary.Add("$($Matches["property"])", $Value)
+					}
+				}
+
+				$null = [Windows.UI.Notifications.NotificationData, Windows.UI.Notifications, ContentType = WindowsRuntime]
+				$NotificationData = [Windows.UI.Notifications.NotificationData]::New($Dictionary)
+				$NotificationData.SequenceNumber = 2
+			}
+			catch {
+				return "3:[NotificationData]::New(),$($_.Exception.Message)"
+			}
+
+			## Update Toast Notification object
+			try {
+				$null = [Windows.UI.Notifications.ToastNotificationManager, Windows.UI.Notifications, ContentType = WindowsRuntime]
+				$NotificationUpdateResult = [Windows.UI.Notifications.ToastNotificationManager]::CreateToastNotifier($AppUserModelId).Update($NotificationData, $Tag, $Group)
+
+				switch ($NotificationUpdateResult) {
+					"Succeeded" { return "1:[ToastNotificationManager]::CreateToastNotifier().Update(),$($NotificationUpdateResult)" }
+					"NotificationNotFound" { return "2:[ToastNotificationManager]::CreateToastNotifier().Update(),$($NotificationUpdateResult)" }
+					"Failed" { return "3:[ToastNotificationManager]::CreateToastNotifier().Update(),$($NotificationUpdateResult)" }
+					Default { throw "The Toast Notification Update Result [$NotificationUpdateResult] is unexpected." }
+				}
+			}
+			catch {
+				return "3:[ToastNotificationManager]::CreateToastNotifier().Update(),$($_.Exception.Message)"
+			}
+		}
+
+		[scriptblock]$InvokedToastNotificationBackgroundKeepBody = {
+			Function Test-ToastNotificationVisible {
+				<#
+				.SYNOPSIS
+					Determines if the previously raised notification is visible.
+				.DESCRIPTION
+					Determines if the previously raised notification is visible.
+					Used by all Toast Notification functions that raise a notification.
+				.PARAMETER AppUserModelId
+					Identifier of the application that raises the notification.
+				.PARAMETER Group
+					Group variable used to identify different instances.
+				.PARAMETER Tag
+					Tag variable used to identify different instances.
+				.INPUTS
+					None
+					You cannot pipe objects to this function.
+				.OUTPUTS
+					System.Boolean
+					Returns $true if the Toast Notification is visible.
+				.EXAMPLE
+					Test-ToastNotificationVisible -Group 'DialogBox'
+				.NOTES
+					This is an internal script function and should typically not be called directly.
+					Author: Leonardo Franco Maragna
+					Part of Toast Notification Extension
+				.LINK
+					https://github.com/LFM8787/PSADT.ToastNotification
+				#>
+				[CmdletBinding()]
+				Param (
+					[Parameter(Mandatory = $false)]
+					[ValidateNotNullorEmpty()]
+					[string]$Group
+				)
+
+				## Prepare a filter for Where-Object
+				[scriptblock]$whereObjectFilter = {
+					if (($Group -and $Tag)) { if (($_.Group -eq $Group) -and ($_.Tag -eq $Tag)) { return $true } }
+					elseif ($Group) { if ($_.Group -eq $Group) { return $true } }
+					elseif ($Tag) { if ($_.Tag -eq $Tag) { return $true } }
+					return $false
+				}
+
+				## Trying to determinate if the Toast Notification is visible
+				try {
+					$ToastNotificationVisible = [Windows.UI.Notifications.ToastNotificationManager]::History.GetHistory($AppUserModelId) | Where-Object -FilterScript $whereObjectFilter
+
+					if ($ToastNotificationVisible) {
+						return $true
+					}
+					else {
+						return $false
+					}
+				}
+				catch {
+					return $false
+				}
+			}
+
+			## Load required assemblies
+			$null = [Windows.UI.Notifications.ToastNotificationManager, Windows.UI.Notifications, ContentType = WindowsRuntime]
+			$null = [Windows.UI.Notifications.NotificationData, Windows.UI.Notifications, ContentType = WindowsRuntime]
+
+			do {
+				## Update Notification Data
+				try {
+					$Dictionary = [System.Collections.Generic.Dictionary[String, String]]::New()
+
+					$DictionaryData -split "_item-separator_" | ForEach-Object {
+						if ($_ -match $DictionaryDataRegexPattern) {
+							$Dictionary.Add("$($Matches["property"])", "$($Matches["value"])$(" "*(Get-Random -Minimum 1 -Maximum 6))")
+						}
+					}
+
+					$NotificationData = [Windows.UI.Notifications.NotificationData]::New($Dictionary)
+					$NotificationData.SequenceNumber = 2
+				}
+				catch {
+					$Return = "3:[NotificationData]::New(),$($_.Exception.Message)"; break
+				}
+
+				#  Update Toast Notification object
+				try {
+					$NotificationUpdateResult = [Windows.UI.Notifications.ToastNotificationManager]::CreateToastNotifier($AppUserModelId).Update($NotificationData, $Tag, $Group)
+
+					switch ($NotificationUpdateResult) {
+						"Succeeded" { $Return = "1:[ToastNotificationManager]::CreateToastNotifier().Update(),$($NotificationUpdateResult)" }
+						"NotificationNotFound" { $Return = "2:[ToastNotificationManager]::CreateToastNotifier().Update(),$($NotificationUpdateResult)"; break }
+						"Failed" { $Return = "3:[ToastNotificationManager]::CreateToastNotifier().Update(),$($NotificationUpdateResult)"; break }
+						Default { throw "The Toast Notification Update Result [$NotificationUpdateResult] is unexpected." }
+					}
+				}
+				catch {
+					$Return = "3:[ToastNotificationManager]::CreateToastNotifier().Update(),$($_.Exception.Message)"; break
+				}
+
+				#  Wait a few seconds before reupdate
+				Start-Sleep -Seconds $UpdateInterval
+			}
+			while (Test-ToastNotificationVisible -Group $Group)
+
+			return $Return
+		}
+
+		## Shows and Updates the Toast Notification as active user
+		if ($InvokedMethod -eq "Show") {
+			#  Reset function result variable and remove any logged user environment result variable
+			$Return = $null
+			Remove-ToastNotificationResult -ResultVariable $ResultVariable -IncludeOriginalPID $true
+
+			#  Clear any previous displayed Toast Notification
+			Clear-ToastNotificationHistory -Group $Group
+
+			#  Copy required file to subscribe to events
+			if ($Group -in ("WelcomePrompt", "DialogBox", "InstallationRestartPrompt", "InstallationPrompt") -and $configToastNotificationGeneralOptions.SubscribeToEvents) {
+				if ([int]$envPSVersionMajor -lt 7) {
+					if ($null -ne $envPoshWinRTLibraryPath) {
+						$PoshWinRTLibrarySourcePath = $envPoshWinRTLibraryPath
+						$PoshWinRTLibraryDestinationPath = Join-Path -Path $ResourceFolder -ChildPath (Split-Path -Path $PoshWinRTLibrarySourcePath -Leaf)
+
+						try {
+							Copy-File -Path $PoshWinRTLibrarySourcePath -Destination $PoshWinRTLibraryDestinationPath -ContinueOnError $false
+						}
+						catch {
+							$configToastNotificationGeneralOptions.SubscribeToEvents = $false
+							Write-Log -Message "Unable to load required library to subscribe to Toast Notification Events in Powershell versions below 7.`r`n$(Resolve-Error)" -Severity 3 -Source ${CmdletName}
+							return "RetryWithProtocol"
+						}
+					}
+					else {
+						Write-Log -Message "To subscribe to Toast Notification Events in Powershell versions below 7, the required PoshWinRT.dll library must be located under [..\SupportFiles\PSADT.ToastNotification\] directory." -Severity 2 -Source ${CmdletName}
+						$configToastNotificationGeneralOptions.SubscribeToEvents = $false
+						return "RetryWithProtocol"
+					}
+				}
+
+				$PoshWinRTParameter = @{
+					PoshWinRTLibraryPath = $PoshWinRTLibraryDestinationPath
+				}
+			}
+
+			#  Creates the ScriptBlock with parameters
+			$InvokedToastNotificationParameters = New-ToastNotificationParameters -ResultVariable $ResultVariable -Group $Group -UpdateInterval $UpdateInterval -DictionaryData $DictionaryData @PoshWinRTParameter
+			$InvokedToastNotification = [scriptblock]::Create(((('[string]$XMLTemplate = ''{0}''' -f ($ToastNotificationTemplate -join "")), $InvokedToastNotificationParameters, $InvokedToastNotificationShowBody.ToString()) -join ";"))
+
+			try {
+				#  Invokes Toast Notification ScriptBlock as Active user
+				$null = Invoke-ProcessAsActiveUser -ScriptBlock $InvokedToastNotification -FallbackToOriginalFunctionOnError $false -ExitOnProcessFailure $false -DisableFunctionLogging
+
+				#  Loops until get the Process Id as result
+				for ($i = 1; $i -le $configToastNotificationGeneralOptions.ShowToastNotificationAsyncTimeout; $i++) {
+					Start-Sleep -Seconds 1
+
+					$InvokedToastNotificationResult = Get-ToastNotificationResult -ResultVariable $ResultVariable -GetInvokedPID
+
+					if ($InvokedToastNotificationResult -match "^\d+$") {
+						#  Received the Process Id
+						$Return = $InvokedToastNotificationResult
+						break
+					}
+					elseif (-not [string]::IsNullOrWhiteSpace($InvokedToastNotificationResult)) {
+						#  Received something different to the Process Id
+						if (($AllowedResults -and $InvokedToastNotificationResult -in $AllowedResults) -or ($InvokedToastNotificationResult -in $DismissedResults)) {
+							#  Catch fast user interaction before Result loop
+
+							#  Clear any previous displayed Toast Notification
+							Clear-ToastNotificationHistory -Group $Group
+
+							$Return = $InvokedToastNotificationResult
+							break
+						}
+						elseif ($InvokedToastNotificationResult -match "(?<Severity>\d):(?<Method>[\S]+),(?<Description>.+)") {
+							#  Received a expected formatted string
+							$ReturnSeverity = $Matches["Severity"]
+							$ReturnMethod = $Matches["Method"]
+							$ReturnDescription = $Matches["Description"]
+
+
+							if ($ReturnSeverity -eq 1) {
+								#  Received a expected formatted information string
+								Write-Log -Message "$($ReturnMethod): $($ReturnDescription)" -Severity $ReturnSeverity -Source ${CmdletName} -DebugMessage
+							}
+							elseif ($ReturnSeverity -eq 2) {
+								#  Received a expected formatted warning string
+								Write-Log -Message "$($ReturnMethod): $($ReturnDescription)" -Severity $ReturnSeverity -Source ${CmdletName} -DebugMessage
+							}
+							elseif ($ReturnSeverity -eq 3) {
+								#  Received a expected formatted error string
+								Write-Log -Message "$($ReturnMethod): $($ReturnDescription)" -Severity $ReturnSeverity -Source ${CmdletName}
+
+								if ($ReturnMethod -in ("Register-ToastNotificationEvents", "[Assembly]::Load()")) {
+									#  If Subscription failed, try with Protocol
+									if ($configToastNotificationGeneralOptions.SubscribeToEvents) {
+										$configToastNotificationGeneralOptions.SubscribeToEvents = $false
+
+										#  Test if the Toast Notification can be shown
+										$ToastNotificationExtensionTestResult = Test-ToastNotificationExtension -CheckProtocol
+
+										if ($ToastNotificationExtensionTestResult) {
+											Invoke-Command -ScriptBlock $SetSubscribeToEventsProperties -NoNewScope
+											$Return = "RetryWithProtocol"
+										}
+									}
+									break
+								}
+							}
+						}
+
+						#  Received an unexpected output from the invokation
+						throw "Unexpected result [$InvokedToastNotificationResult] given by the Toast Notification."
+					}
+					else {
+						Write-Log -message "Trying to obtain the invoked PID running as user, try $($i) of $($configToastNotificationGeneralOptions.ShowToastNotificationAsyncTimeout)..." -Severity 2 -Source ${CmdletName} -DebugMessage
+					}
+
+					if ($i -eq $configToastNotificationGeneralOptions.ShowToastNotificationAsyncTimeout) {
+						throw "No invoked PID received in [$i] seconds."
+					}
+				}
+			}
+			catch {
+				Write-Log -Message "Unable to show Toast Notification.`r`n$(Resolve-Error)" -Severity 3 -Source ${CmdletName}
+			}
+
+			return $Return
+		}
+		elseif ($InvokedMethod -eq "Update") {
+			#  Creates the ScriptBlock with parameters
+			$InvokedToastNotificationParameters = New-ToastNotificationParameters -Group $Group -DictionaryData $DictionaryData
+			$InvokedToastNotification = [scriptblock]::Create((($InvokedToastNotificationParameters, $InvokedToastNotificationUpdateBody.ToString()) -join ";"))
+
+			try {
+				#  Invokes Toast Notification ScriptBlock as Active user
+				[string]$InvokedToastNotificationResult = Invoke-ProcessAsActiveUser -ScriptBlock $InvokedToastNotification -CaptureOutput -Wait -FallbackToOriginalFunctionOnError $false -ExitOnProcessFailure $false -DisableFunctionLogging
+
+				if ($InvokedToastNotificationResult -match "(?<Severity>\d):(?<Method>[\S]+),(?<Description>.+)") {
+					#  Received a expected formatted string
+					$ReturnSeverity = $Matches["Severity"]
+					$ReturnMethod = $Matches["Method"]
+					$ReturnDescription = $Matches["Description"]
+
+					if ($ReturnSeverity -eq 1) {
+						#  Received a expected formatted information string
+						Write-Log -Message "$($ReturnMethod): $($ReturnDescription)" -Severity $ReturnSeverity -Source ${CmdletName} -DebugMessage
+					}
+					elseif ($ReturnSeverity -eq 2) {
+						#  Received a expected formatted warning string
+						Write-Log -Message "$($ReturnMethod): $($ReturnDescription)" -Severity $ReturnSeverity -Source ${CmdletName} -DebugMessage
+					}
+					elseif ($ReturnSeverity -eq 3) {
+						#  Received a expected formatted error string
+						Write-Log -Message "$($ReturnMethod): $($ReturnDescription)" -Severity $ReturnSeverity -Source ${CmdletName}
+					}
+				}
+			}
+			catch {
+				Write-Log -Message "Unable to update Toast Notification.`r`n$(Resolve-Error)" -Severity 3 -Source ${CmdletName}
+			}
+		}
+		elseif ($InvokedMethod -eq "BackgroundKeep") {
+			#  Creates the ScriptBlock with parameters
+			$InvokedToastNotificationParameters = New-ToastNotificationParameters -Group $Group -DictionaryData $DictionaryData -UpdateInterval $UpdateInterval
+			$InvokedToastNotification = [scriptblock]::Create((($InvokedToastNotificationParameters, $InvokedToastNotificationBackgroundKeepBody.ToString()) -join ";"))
+
+			try {
+				#  Invokes Toast Notification ScriptBlock as Active user
+				Invoke-ProcessAsActiveUser -ScriptBlock $InvokedToastNotification -FallbackToOriginalFunctionOnError $false -ExitOnProcessFailure $false -DisableFunctionLogging
+			}
+			catch {
+				Write-Log -Message "Unable to keep Toast Notification updated in background.`r`n$(Resolve-Error)" -Severity 3 -Source ${CmdletName}
+			}
+		}
+	}
+	End {
+		Write-FunctionHeaderOrFooter -CmdletName ${CmdletName} -Footer
+	}
+}
+#endregion
+
+
+#region Function New-ToastNotificationResourceFolder
+Function New-ToastNotificationResourceFolder {
+	<#
+	.SYNOPSIS
+		Creates a folder where the icons and library will be located.
+	.DESCRIPTION
+		Creates a folder where the icons and library will be located.
+	.PARAMETER ResourceFolder
+		Base directory where the icons and library will be located.
+	.INPUTS
+		None
+		You cannot pipe objects to this function.
+	.OUTPUTS
+		System.Boolean
+		Returns $true if the folder could be created.
+	.NOTES
+		This is an internal script function and should typically not be called directly.
+		Author: Leonardo Franco Maragna
+		Part of Toast Notification Extension
+	.LINK
+		https://github.com/LFM8787/PSADT.ToastNotification
+		https://psappdeploytoolkit.com
+		http://psappdeploytoolkit.com
+	#>
+	[CmdletBinding()]
+	Param (
+		[Parameter(Mandatory = $false)]
+		[ValidateNotNullorEmpty()]
+		[IO.FileInfo]$ResourceFolder = $configToastNotificationGeneralOptions.ResourceFolder
+	)
+
+	Begin {
+		## Get the name of this function and write header
+		[string]${CmdletName} = $PSCmdlet.MyInvocation.MyCommand.Name
+		Write-FunctionHeaderOrFooter -CmdletName ${CmdletName} -CmdletBoundParameters $PSBoundParameters -Header
+	}
+	Process {
+		$Result = $false
+
+		## Create Working Directory temp folder to use
+		if (-not (Test-Path -Path $ResourceFolder -PathType Container)) {
+			try {
+				New-Folder -Path $ResourceFolder -ContinueOnError $false
+				if ($IsAdmin) {
+					$null = Remove-FolderAfterReboot -Path (Split-Path -Path $ResourceFolder -Parent) -ContinueOnError $true -DisableFunctionLogging
+				}
+			}
+			catch {
+				Write-Log -Message "Unable to create Toast Notification resource folder [$ResourceFolder].`r`n$(Resolve-Error)" -Severity 3 -Source ${CmdletName}
+
+				return $Result
+			}
+		}
+
+		if (Test-Path -Path $ResourceFolder -PathType Container) {
+			$Result = $true
+
+			## Set contents to be readable for all users (BUILTIN\USERS)
+			if ($IsAdmin) {
+				try {
+					$Users = ConvertTo-NTAccountOrSID -SID "S-1-5-32-545"
+					$null = Set-ItemPermission -Path $ResourceFolder -User $Users -Permission Read -Inheritance "ObjectInherit", "ContainerInherit"
+				}
+				catch {
+					Write-Log -Message "Failed to set Read permissions on path [$ResourceFolder]. The images and icons might not be shown correctly." -Severity 2 -Source ${CmdletName}
+				}
+			}
+		}
+
+		return $Result
 	}
 	End {
 		Write-FunctionHeaderOrFooter -CmdletName ${CmdletName} -Footer
@@ -5160,6 +5192,7 @@ Function New-ToastNotificationAppId {
 		Part of Toast Notification Extension
 	.LINK
 		https://github.com/LFM8787/PSADT.ToastNotification
+		https://psappdeploytoolkit.com
 		http://psappdeploytoolkit.com
 	#>
 	[CmdletBinding()]
@@ -5260,6 +5293,7 @@ Function New-ToastNotificationProtocol {
 		Part of Toast Notification Extension
 	.LINK
 		https://github.com/LFM8787/PSADT.ToastNotification
+		https://psappdeploytoolkit.com
 		http://psappdeploytoolkit.com
 	#>
 	[CmdletBinding()]
@@ -5356,6 +5390,7 @@ Function New-ToastNotificationProtocolCommandFile {
 		Part of Toast Notification Extension
 	.LINK
 		https://github.com/LFM8787/PSADT.ToastNotification
+		https://psappdeploytoolkit.com
 		http://psappdeploytoolkit.com
 	#>
 	[CmdletBinding()]
@@ -5390,9 +5425,20 @@ Function New-ToastNotificationProtocolCommandFile {
 			throw "Failed to create protocol command file [$ProtocolCommandFilePath]: $($_.Exception.Message)"
 		}
 
+		## Set protocol command file execution permission for all users (BUILTIN\USERS)
+		if ($IsAdmin) {
+			try {
+				$Users = ConvertTo-NTAccountOrSID -SID "S-1-5-32-545"
+				$null = Set-ItemPermission -Path $ProtocolCommandFilePath -User $Users -Permission ReadAndExecute -Inheritance "ObjectInherit", "ContainerInherit"
+			}
+			catch {
+				Write-Log -Message "Failed to set ReadAndExecute permissions on protocol command file [$ProtocolCommandFilePath]." -Severity 2 -Source ${CmdletName}
+			}
+		}
+
 		switch ($FileType) {
-			"vbs" { $ScriptContent = $configToastNotificationScripts.ScriptVBS }
-			"cmd" { $ScriptContent = $configToastNotificationScripts.ScriptCMD }
+			"vbs" { $ScriptContent = $configToastNotificationScripts.ScriptVBS -split '`r`n' }
+			"cmd" { $ScriptContent = $configToastNotificationScripts.ScriptCMD -split '`r`n' }
 		}
 
 		if ([string]::IsNullOrWhiteSpace($ScriptContent)) {
@@ -5401,8 +5447,8 @@ Function New-ToastNotificationProtocolCommandFile {
 		}
 		else {
 			try {
-				$ScriptContent = $ScriptContent -f ( <#0#> $WorkingDirectory)
-				$ScriptContent | Out-File -FilePath $ProtocolCommandFilePath -Force -Encoding oem
+				$ScriptContent | ForEach-Object { Out-File -InputObject "$($_)$([Environment]::NewLine)" -LiteralPath $ProtocolCommandFilePath -Append -Encoding oem -Force -ErrorAction Stop }
+
 				$ProtocolCommandFileHash = (Get-FileHash -Path $ProtocolCommandFilePath).Hash
 
 				#  If the protocol command file is created, return the hash of the file
@@ -5447,6 +5493,7 @@ Function Remove-ToastNotificationAppId {
 		Part of Toast Notification Extension
 	.LINK
 		https://github.com/LFM8787/PSADT.ToastNotification
+		https://psappdeploytoolkit.com
 		http://psappdeploytoolkit.com
 	#>
 	[CmdletBinding()]
@@ -5504,6 +5551,7 @@ Function Remove-ToastNotificationProtocol {
 		Part of Toast Notification Extension
 	.LINK
 		https://github.com/LFM8787/PSADT.ToastNotification
+		https://psappdeploytoolkit.com
 		http://psappdeploytoolkit.com
 	#>
 	[CmdletBinding()]
@@ -5562,7 +5610,7 @@ Function Compare-ToastNotificationAppId {
 		None
 		You cannot pipe objects to this function.
 	.OUTPUTS
-		Boolean
+		System.Boolean
 		Returns $true if the application identifier is correct in the registry.
 	.EXAMPLE
 		Compare-ToastNotificationAppId -DisplayName 'IT software' -RegistrySubTree 'HKEY_CURRENT_USER'
@@ -5572,6 +5620,7 @@ Function Compare-ToastNotificationAppId {
 		Part of Toast Notification Extension
 	.LINK
 		https://github.com/LFM8787/PSADT.ToastNotification
+		https://psappdeploytoolkit.com
 		http://psappdeploytoolkit.com
 	#>
 	[CmdletBinding()]
@@ -5652,7 +5701,7 @@ Function Compare-ToastNotificationAppId {
 				#	return $false
 				#}
 
-				Write-Log -Message "The Toast Notification AppId [$($AppUserModelId)] is Enabled and registered." -Source ${CmdletName} -DebugMessage
+				Write-Log -Message "The Toast Notification AppId [$($AppUserModelId)] is Enabled and registered." -Severity 2 -Source ${CmdletName} -DebugMessage
 				return $true
 			}
 			else {
@@ -5690,15 +5739,13 @@ Function Compare-ToastNotificationProtocol {
 		Different file types according the script order to be compared.
 	.PARAMETER RegistrySubTree
 		Registry subtree to determine if the protocol will be registered in system or user context.
-	.PARAMETER ResourceFolder
-		Base directory where the icons and results will be located.
 	.PARAMETER OnlyCheckExistance
 		If specified, only checks if the protocols exists in registry.
 	.INPUTS
 		None
 		You cannot pipe objects to this function.
 	.OUTPUTS
-		Boolean
+		System.Boolean
 		Returns $true if the Protocol is correctly registered.
 	.EXAMPLE
 		Compare-ToastNotificationProtocol -FileType 'cmd' -RegistrySubTree 'HKEY_CURRENT_USER' -OnlyCheckExistance
@@ -5708,6 +5755,7 @@ Function Compare-ToastNotificationProtocol {
 		Part of Toast Notification Extension
 	.LINK
 		https://github.com/LFM8787/PSADT.ToastNotification
+		https://psappdeploytoolkit.com
 		http://psappdeploytoolkit.com
 	#>
 	[CmdletBinding()]
@@ -5727,10 +5775,6 @@ Function Compare-ToastNotificationProtocol {
 		[Parameter(Mandatory = $true)]
 		[ValidateSet("HKEY_LOCAL_MACHINE", "HKEY_CURRENT_USER")]
 		[string]$RegistrySubTree,
-		[Parameter(Mandatory = $false)]
-		[ValidateNotNullorEmpty()]
-		[string]$ResourceFolder = $configToastNotificationGeneralOptions.ResourceFolder,
-		[Parameter(Mandatory = $false)]
 		[switch]$OnlyCheckExistance
 	)
 
@@ -5752,7 +5796,7 @@ Function Compare-ToastNotificationProtocol {
 
 		if ($OnlyCheckExistance) {
 			if (Test-Path -Path $ProtocolRegistryPath -ErrorAction SilentlyContinue) {
-				Write-Log -Message "The Toast Notification protocol [$($ProtocolName)] exists in [$($ProtocolRegistryPath)]." -Source ${CmdletName} -DebugMessage
+				Write-Log -Message "The Toast Notification protocol [$($ProtocolName)] exists in [$($ProtocolRegistryPath)]." -Severity 2 -Source ${CmdletName} -DebugMessage
 				return $true
 			}
 			else {
@@ -5794,18 +5838,30 @@ Function Compare-ToastNotificationProtocol {
 		}
 
 		## Check if Toast Notification protocol command gives the expected result
+		$ProtocolResultVariable = "Testing_$([System.Diagnostics.Process]::GetCurrentProcess().Id)_Result"
 		#  Clean any previuos result
-		Remove-ToastNotificationResult -ResourceFolder $ResourceFolder
+		Remove-ToastNotificationResult -ResultVariable $ProtocolResultVariable -IncludeOriginalPID $true
 
 		#  Test Toast Notification protocol
 		try {
-			$ProtocolTesting = '{0}:{1}?Testing' -f ( <#0#> $ProtocolName), ( <#1#> $TaggingVariable)
+			$ProtocolTesting = '{0}:{1}?Testing' -f ( <#0#> $ProtocolName), ( <#1#> $ProtocolResultVariable)
 
-			$null = Start-Process $ProtocolTesting -PassThru -Wait -WindowStyle Hidden
+			## Creates the ScriptBlock with parameters
+			$ProtocolTestParameters = "`$ProtocolTesting = '$ProtocolTesting'"
+
+			[scriptblock]$ProtocolTestBody = {
+				Start-Process $ProtocolTesting -PassThru -Wait -WindowStyle Hidden
+			}
+
+			$ProtocolTestScriptBlock = [scriptblock]::Create((($ProtocolTestParameters, $ProtocolTestBody.ToString()) -join ";"))
+
+			## Invokes ScriptBlock as Active user
+			$null = Invoke-ProcessAsActiveUser -ScriptBlock $ProtocolTestScriptBlock -Wait -ExitOnProcessFailure $false -DisableFunctionLogging
 
 			if ($?) {
-				$Result = Get-ToastNotificationResult -ResourceFolder $ResourceFolder -TestingProtocol
+				$Result = Get-ToastNotificationResult -ResultVariable $ProtocolResultVariable -TestingProtocol
 				if ($Result -eq "Testing") {
+					Write-Log -Message "The Toast Notification protocol [$ProtocolName] test was successful." -Severity 2 -Source ${CmdletName} -DebugMessage
 					return $true
 				}
 				else {
@@ -5838,7 +5894,7 @@ Function Test-ToastNotificationAppId {
 		None
 		You cannot pipe objects to this function.
 	.OUTPUTS
-		Boolean
+		System.Boolean
 		Returns $true if the Application Identifier Test is OK.
 	.EXAMPLE
 		Test-ToastNotificationAppId
@@ -5848,6 +5904,7 @@ Function Test-ToastNotificationAppId {
 		Part of Toast Notification Extension
 	.LINK
 		https://github.com/LFM8787/PSADT.ToastNotification
+		https://psappdeploytoolkit.com
 		http://psappdeploytoolkit.com
 	#>
 	[CmdletBinding()]
@@ -5920,7 +5977,7 @@ Function Test-ToastNotificationProtocol {
 		None
 		You cannot pipe objects to this function.
 	.OUTPUTS
-		Boolean
+		System.Boolean
 		Returns $true if the Protocol Test is correct.
 	.EXAMPLE
 		Test-ToastNotificationProtocol
@@ -5930,6 +5987,7 @@ Function Test-ToastNotificationProtocol {
 		Part of Toast Notification Extension
 	.LINK
 		https://github.com/LFM8787/PSADT.ToastNotification
+		https://psappdeploytoolkit.com
 		http://psappdeploytoolkit.com
 	#>
 	[CmdletBinding()]
@@ -6015,7 +6073,7 @@ Function Test-ToastNotificationVisible {
 		None
 		You cannot pipe objects to this function.
 	.OUTPUTS
-		Boolean
+		System.Boolean
 		Returns $true if the Toast Notification is visible.
 	.EXAMPLE
 		Test-ToastNotificationVisible -Group 'DialogBox'
@@ -6025,6 +6083,7 @@ Function Test-ToastNotificationVisible {
 		Part of Toast Notification Extension
 	.LINK
 		https://github.com/LFM8787/PSADT.ToastNotification
+		https://psappdeploytoolkit.com
 		http://psappdeploytoolkit.com
 	#>
 	[CmdletBinding()]
@@ -6046,29 +6105,28 @@ Function Test-ToastNotificationVisible {
 		Write-FunctionHeaderOrFooter -CmdletName ${CmdletName} -CmdletBoundParameters $PSBoundParameters -Header
 	}
 	Process {
+		$Return = $false
+
 		## Prepare a filter for Where-Object
 		[scriptblock]$whereObjectFilter = {
-			if ($Group -and $Tag -and $_.Group -eq $Group -and $_.Tag -eq $Tag) { return $true }
-			elseif ($Group -and $_.Group -eq $Group) { return $true }
-			elseif ($Tag -and $_.Tag -eq $Tag) { return $true }
+			if (($Group -and $Tag)) { if (($_.Group -eq $Group) -and ($_.Tag -eq $Tag)) { return $true } }
+			elseif ($Group) { if ($_.Group -eq $Group) { return $true } }
+			elseif ($Tag) { if ($_.Tag -eq $Tag) { return $true } }
 			return $false
 		}
 
 		## Trying to determinate if the Toast Notification is visible
 		try {
-			$ToastNotificationVisible = [Windows.UI.Notifications.ToastNotificationManager]::History.GetHistory($AppUserModelId) | Where-Object -FilterScript $whereObjectFilter
+			$ToastNotificationVisible = [Windows.UI.Notifications.ToastNotificationManager]::History.GetHistory($AppUserModelId) | Where-Object -FilterScript $whereObjectFilter | Select-Object *
 
-			if ($ToastNotificationVisible) {
-				return $true
-			}
-			else {
-				return $false
-			}
+			if ($ToastNotificationVisible) { $Return = $true }
 		}
 		catch {
-			Write-Log -Message "The Toast Notification visible test failed.`r`n$(Resolve-Error)" -Severity 3 -Source ${CmdletName} -DebugMessage
-			return $false
+			Write-Log -Message "The Toast Notification visible test failed.`r`n$(Resolve-Error)" -Severity 3 -Source ${CmdletName}
 		}
+
+		Write-Log -Message "The Toast Notification visible test result is [$($Return.ToString().ToUpper())]." -Source ${CmdletName} -DebugMessage
+		return $Return
 	}
 	End {
 		Write-FunctionHeaderOrFooter -CmdletName ${CmdletName} -Footer
@@ -6091,7 +6149,7 @@ Function Test-ToastNotificationAvailability {
 		None
 		You cannot pipe objects to this function.
 	.OUTPUTS
-		Boolean
+		System.Boolean
 		Return $true if the Toast Notification can be raised.
 	.EXAMPLE
 		Test-ToastNotificationAvailability -AppUserModelId 'PSADT.ToastNotification'
@@ -6101,6 +6159,7 @@ Function Test-ToastNotificationAvailability {
 		Part of Toast Notification Extension
 	.LINK
 		https://github.com/LFM8787/PSADT.ToastNotification
+		https://psappdeploytoolkit.com
 		http://psappdeploytoolkit.com
 	#>
 	[CmdletBinding()]
@@ -6114,44 +6173,87 @@ Function Test-ToastNotificationAvailability {
 		## Get the name of this function and write header
 		[string]${CmdletName} = $PSCmdlet.MyInvocation.MyCommand.Name
 		Write-FunctionHeaderOrFooter -CmdletName ${CmdletName} -CmdletBoundParameters $PSBoundParameters -Header
-
-		## Load required WinRT assemblies
-		$null = [Windows.UI.Notifications.ToastNotificationManager, Windows.UI.Notifications, ContentType = WindowsRuntime]
 	}
 	Process {
-		## Trying to get if the AppId is able to display a Toast Notification
-		try {
-			$ToastNotificationManager = [Windows.UI.Notifications.ToastNotificationManager]::CreateToastNotifier($AppUserModelId)
+		## Creates the ScriptBlock with parameters
+		$TestCurrentUserAvailabilityParameters = "`$AppUserModelId = '$AppUserModelId'"
 
-			if ($ToastNotificationManager.Setting.value__ -is [int]) {
-				Write-Log -Message "The Toast Notification availability test result is: [$($ToastNotificationManager.Setting)]" -Source ${CmdletName} -DebugMessage
+		[scriptblock]$TestCurrentUserAvailabilityBody = {
+			try {
+				## Load required WinRT assemblies
+				$null = [Windows.UI.Notifications.ToastNotificationManager, Windows.UI.Notifications, ContentType = WindowsRuntime]
 
-				switch ($ToastNotificationManager.Setting.value__) {
-					0 {
-						Write-Log -Message "All notifications raised by this app can be displayed." -Source ${CmdletName} -DebugMessage
-						return $true
-					}
-					1 {
-						Write-Log -Message "The user has disabled notifications for this app." -Severity 3 -Source ${CmdletName} -DebugMessage
-						return $false
-					}
-					2 {
-						Write-Log -Message "The user or administrator has disabled all notifications for this user on this computer." -Severity 3 -Source ${CmdletName} -DebugMessage
-						return $false
-					}
-					3 {
-						Write-Log -Message "An administrator has disabled all notifications on this computer through group policy. The group policy setting overrides the user's setting." -Severity 3 -Source ${CmdletName} -DebugMessage
-						return $false
-					}
-					4 {
-						Write-Log -Message "This app has not declared itself toast capable in its package.appxmanifest file. This setting is found on the manifest's Application UI page, under the Notification section. For an app to send toast, the Toast Capable option must be set to 'Yes'." -Severity 3 -Source ${CmdletName} -DebugMessage
-						return $false
-					}
+				$ToastNotificationManager = [Windows.UI.Notifications.ToastNotificationManager]::CreateToastNotifier($AppUserModelId)
+
+				if ($ToastNotificationManager.Setting.value__ -is [int]) {
+					return $ToastNotificationManager.Setting.value__
+				}
+				else {
+					return "null"
 				}
 			}
+			catch {
+				return $_.Exception.Message
+			}
+		}
+
+		$TestCurrentUserAvailabilityScriptBlock = [scriptblock]::Create((($TestCurrentUserAvailabilityParameters, $TestCurrentUserAvailabilityBody.ToString()) -join ";"))
+
+		## Trying to get if the AppId is able to display a Toast Notification
+		try {
+			## Invokes ScriptBlock as Active user
+			[string]$InvokationResult = Invoke-ProcessAsActiveUser -ScriptBlock $TestCurrentUserAvailabilityScriptBlock -CaptureOutput -Wait -FallbackToOriginalFunctionOnError $false -ExitOnProcessFailure $false -DisableFunctionLogging
+
+			## Analyze the returned invokation result
+			if ([string]::IsNullOrWhiteSpace($InvokationResult)) {
+				throw "The invokation process did not returned any useful data."
+			}
 			else {
-				Write-Log -Message "The Toast Notification availability test result is null. Expected if this is the first notification raised by the AppId" -Severity 2 -Source ${CmdletName} -DebugMessage
-				return $true
+				Write-Log -Message "The invokation process returned [$InvokationResult]" -Severity 2 -Source ${CmdletName} -DebugMessage
+
+				## Formats the invokation result since it may contains additional empty lines
+				$FormattedResult = ($InvokationResult.Split("`r`n", [System.StringSplitOptions]::RemoveEmptyEntries) -join "").Trim()
+
+				[int]$SettingValue = $null
+
+				if ([int32]::TryParse($FormattedResult, [ref]$SettingValue)) {
+					Write-Log -Message "The Toast Notification availability test result is: [$($SettingValue)]" -Source ${CmdletName} -DebugMessage
+
+					switch ($SettingValue) {
+						0 {
+							Write-Log -Message "All notifications raised by this app can be displayed." -Source ${CmdletName} -DebugMessage
+							return $true
+						}
+						1 {
+							Write-Log -Message "The user has disabled notifications for this app." -Severity 3 -Source ${CmdletName} -DebugMessage
+							return $false
+						}
+						2 {
+							Write-Log -Message "The user or administrator has disabled all notifications for this user on this computer." -Severity 3 -Source ${CmdletName} -DebugMessage
+							return $false
+						}
+						3 {
+							Write-Log -Message "An administrator has disabled all notifications on this computer through group policy. The group policy setting overrides the user's setting." -Severity 3 -Source ${CmdletName} -DebugMessage
+							return $false
+						}
+						4 {
+							Write-Log -Message "This app has not declared itself toast capable in its package.appxmanifest file. This setting is found on the manifest's Application UI page, under the Notification section. For an app to send toast, the Toast Capable option must be set to 'Yes'." -Severity 3 -Source ${CmdletName} -DebugMessage
+							return $false
+						}
+						default {
+							Write-Log -Message "The result given is not expected, by default the test will fail." -Severity 2 -Source ${CmdletName} -DebugMessage
+							return $false
+						}
+					}
+				}
+				elseif ($FormattedResult -eq "null") {
+					Write-Log -Message "The Toast Notification availability test result is null. Expected if this is the first notification raised by the AppId" -Severity 2 -Source ${CmdletName} -DebugMessage
+					return $true
+				}
+				else {
+					Write-Log -Message "The Toast Notification availability test failed: $FormattedResult" -Severity 3 -Source ${CmdletName} -DebugMessage
+					return $false
+				}
 			}
 		}
 		catch {
@@ -6180,7 +6282,7 @@ Function Test-ToastNotificationExtension {
 		None
 		You cannot pipe objects to this function.
 	.OUTPUTS
-		Boolean
+		System.Boolean
 		Returns $true if the Extension can be used.
 	.EXAMPLE
 		Test-ToastNotificationExtension -CheckProtocol
@@ -6190,6 +6292,7 @@ Function Test-ToastNotificationExtension {
 		Part of Toast Notification Extension
 	.LINK
 		https://github.com/LFM8787/PSADT.ToastNotification
+		https://psappdeploytoolkit.com
 		http://psappdeploytoolkit.com
 	#>
 	[CmdletBinding()]
@@ -6240,10 +6343,12 @@ Function Get-ToastNotificationResult {
 	.DESCRIPTION
 		Obtains the result of the execution and/or test of the protocol.
 		Used by all Toast Notification functions that raise a notification.
-	.PARAMETER ResourceFolder
-		Path where to search and remove any results found.
 	.PARAMETER AllowedResults
-		Array containing only allowed or expected results.
+		Allowed Toast Notification action results.
+	.PARAMETER ResultVariable
+		Result variable of the user environment where the result of the actions will be written.
+	.PARAMETER GetInvokedPID
+		If specified, returns the invoked Process Id as result.
 	.PARAMETER TestingProtocol
 		If specified, only finds protocol test result.
 	.INPUTS
@@ -6260,16 +6365,18 @@ Function Get-ToastNotificationResult {
 		Part of Toast Notification Extension
 	.LINK
 		https://github.com/LFM8787/PSADT.ToastNotification
+		https://psappdeploytoolkit.com
 		http://psappdeploytoolkit.com
 	#>
 	[CmdletBinding()]
 	Param (
 		[Parameter(Mandatory = $false)]
 		[ValidateNotNullorEmpty()]
-		[IO.FileInfo]$ResourceFolder = $configToastNotificationGeneralOptions.ResourceFolder,
-		[Parameter(Mandatory = $false)]
-		[ValidateNotNullorEmpty()]
 		[array]$AllowedResults,
+		[Parameter(Mandatory = $true)]
+		[ValidateNotNullorEmpty()]
+		[string]$ResultVariable,
+		[switch]$GetInvokedPID,
 		[switch]$TestingProtocol
 	)
 
@@ -6279,33 +6386,75 @@ Function Get-ToastNotificationResult {
 		Write-FunctionHeaderOrFooter -CmdletName ${CmdletName} -CmdletBoundParameters $PSBoundParameters -Header
 	}
 	Process {
-		$Result = $null
+		## Creates the ScriptBlock with parameters
+		$GetResultVariableParameters = "`$ResultVariable = '$ResultVariable'"
 
-		if (Test-Path -Path $ResourceFolder -PathType Container) {
-			$TagFiles = Get-ChildItem -Path $ResourceFolder -Filter "*.tag" -Depth 0 -Force -ErrorAction SilentlyContinue
-
-			## Determine the result based in the tag files found
-			if ($null -ne $TagFiles) {
-				foreach ($TagFileName in $TagFiles.BaseName) {
-					if ($TestingProtocol) {
-						if ($TagFileName -eq "Testing") { $Result = $TagFileName; break }
-					}
-					else {
-						#  Skip Testing tag if found
-						if ($TagFileName -eq "Testing") { continue }
-
-						#  Checks if the result is allowed when defined AllowedResults
-						if ($AllowedResults -and $TagFileName -notin $AllowedResults) { continue }
-
-						#  Result found
-						$Result = $TagFileName
-						break
-					}
-				}
+		[scriptblock]$GetResultVariableBody = {
+			## Regex used to match the Result Variables
+			try {
+				$Return = [Environment]::GetEnvironmentVariable($ResultVariable, "User")
+				return $Return
+			}
+			catch {
+				return $null
 			}
 		}
 
-		return $Result
+		$GetResultVariableScriptBlock = [scriptblock]::Create((($GetResultVariableParameters, $GetResultVariableBody.ToString()) -join ";"))
+
+		## Trying to get the Toast Notification result
+		try {
+			## Invokes ScriptBlock as Active user
+			[string]$InvokationResult = Invoke-ProcessAsActiveUser -ScriptBlock $GetResultVariableScriptBlock -CaptureOutput -Wait -FallbackToOriginalFunctionOnError $false -ExitOnProcessFailure $false -DisableFunctionLogging
+
+			## Analyze the returned invokation result
+			$Result = $null
+
+			Write-Log -Message "The invokation process returned [$InvokationResult]" -Severity 2 -Source ${CmdletName} -DebugMessage
+
+			## Formats the invokation result since it may contains additional empty lines
+			$FormattedResult = ($InvokationResult.Split("`r`n", [System.StringSplitOptions]::RemoveEmptyEntries) -join "").Trim()
+
+			switch ($FormattedResult) {
+				"Testing" {
+					if ($TestingProtocol) {
+						#  Returning 'Testing'
+						$Result = $_
+					}
+				}
+				default {
+					if (-not [string]::IsNullOrWhiteSpace($_)) {
+						if ($AllowedResults) {
+							if (($_ -in $AllowedResults) -or ($_ -in ("ApplicationHidden", "Click", "TimedOut", "UserCanceled"))) {
+								#  Returning the matching Allowed Result or user interaction
+								$Result = $_
+							}
+						}
+						elseif ($GetInvokedPID -and $_ -match "^\d+$") {
+							#  Returning the invokation Process Id
+							$Result = $_
+						}
+						else {
+							#  Returning the not null result found
+							$Result = $_
+						}
+					}
+				}
+			}
+
+			if ($null -eq $Result) {
+				Write-Log -Message "Returning null value since no match was possible with function parameters." -Severity 2 -Source ${CmdletName} -DebugMessage
+			}
+			else {
+				Write-Log -Message "Returning result [$Result]" -Severity 2 -Source ${CmdletName} -DebugMessage
+			}
+
+			return $Result
+		}
+		catch {
+			Write-Log -Message "Failed to get the Toast Notification result.`r`n$(Resolve-Error)" -Severity 3 -Source ${CmdletName} -DebugMessage
+			return $null
+		}
 	}
 	End {
 		Write-FunctionHeaderOrFooter -CmdletName ${CmdletName} -Footer
@@ -6318,12 +6467,14 @@ Function Get-ToastNotificationResult {
 Function Remove-ToastNotificationResult {
 	<#
 	.SYNOPSIS
-		Removes any previous result when using protocol.
+		Removes any previous result environment variable.
 	.DESCRIPTION
-		Removes any previous result when using protocol.
+		Removes any previous result environment variable.
 		Used by all Toast Notification functions that require a result.
-	.PARAMETER ResourceFolder
-		Path where to search and remove any results found.
+	.PARAMETER ResultVariable
+		Environment Variable to remove.
+	.PARAMETER IncludeOriginalPID
+		Include the calling Process Id to the filter.
 	.INPUTS
 		None
 		You cannot pipe objects to this function.
@@ -6338,13 +6489,15 @@ Function Remove-ToastNotificationResult {
 		Part of Toast Notification Extension
 	.LINK
 		https://github.com/LFM8787/PSADT.ToastNotification
+		https://psappdeploytoolkit.com
 		http://psappdeploytoolkit.com
 	#>
 	[CmdletBinding()]
 	Param (
-		[Parameter(Mandatory = $false)]
+		[Parameter(Mandatory = $true)]
 		[ValidateNotNullorEmpty()]
-		[string]$ResourceFolder = $configToastNotificationGeneralOptions.ResourceFolder
+		[string]$ResultVariable,
+		[bool]$IncludeOriginalPID = $false
 	)
 
 	Begin {
@@ -6353,9 +6506,39 @@ Function Remove-ToastNotificationResult {
 		Write-FunctionHeaderOrFooter -CmdletName ${CmdletName} -CmdletBoundParameters $PSBoundParameters -Header
 	}
 	Process {
-		if (Test-Path -Path $ResourceFolder -ErrorAction SilentlyContinue) {
-			$null = Get-ChildItem -Path $ResourceFolder -Filter "*.tag" -Depth 0 -Force -ErrorAction SilentlyContinue | ForEach-Object { Remove-File -Path $_.FullName }
+		## Creates the ScriptBlock with parameters
+		$RemoveResultVariablesParameters = "`$OriginalPID = $([System.Diagnostics.Process]::GetCurrentProcess().Id); `$IncludeOriginalPID = [boolean]::Parse(`'$IncludeOriginalPID`'); `$ResultVariable = `'$ResultVariable`';"
+
+		[scriptblock]$RemoveResultVariablesBody = {
+			## Regex used to match the Result Variables
+			$ResultVariableRegexPattern = "[\S]+_(?<ProcessId>\d+)_Result"
+
+			## Running processes
+			$RunningProcesses = Get-Process
+
+			$EnvironmentVariables = [Environment]::GetEnvironmentVariables("User")
+			$EnvironmentVariables.Keys | ForEach-Object {
+				if ($_ -match $ResultVariableRegexPattern) {
+					if ($RunningProcesses.Id -notcontains $Matches["ProcessId"]) {
+						#  Removes all environment variables corresponding to not running processes
+						[Environment]::SetEnvironmentVariable($_, $null , "User")
+					}
+					elseif ($IncludeOriginalPID -and $Matches["ProcessId"] -eq $OriginalPID) {
+						#  Removes the environment variable corresponding to the calling process
+						[Environment]::SetEnvironmentVariable($_, $null , "User")
+					}
+					elseif ($_ -eq $ResultVariable) {
+						#  Removes the environment variable corresponding to the result variable
+						[Environment]::SetEnvironmentVariable($_, $null , "User")
+					}
+				}
+			}
 		}
+
+		$RemoveResultVariablesScriptBlock = [scriptblock]::Create((($RemoveResultVariablesParameters, $RemoveResultVariablesBody.ToString()) -join ";"))
+
+		## Invokes ScriptBlock as Active user
+		$null = Invoke-ProcessAsActiveUser -ScriptBlock $RemoveResultVariablesScriptBlock -FallbackToOriginalFunctionOnError $false -ExitOnProcessFailure $false -DisableFunctionLogging
 	}
 	End {
 		Write-FunctionHeaderOrFooter -CmdletName ${CmdletName} -Footer
@@ -6390,6 +6573,7 @@ Function Clear-ToastNotificationHistory {
 		Part of Toast Notification Extension
 	.LINK
 		https://github.com/LFM8787/PSADT.ToastNotification
+		https://psappdeploytoolkit.com
 		http://psappdeploytoolkit.com
 	#>
 	[CmdletBinding()]
@@ -6427,231 +6611,6 @@ Function Clear-ToastNotificationHistory {
 }
 #endregion
 
-
-#region Function Register-WrappedToastNotificationEvent
-Function Register-WrappedToastNotificationEvent {
-	<#
-	.SYNOPSIS
-		Register a WinRT event by wrapping it in a compatible object.
-	.DESCRIPTION
-		Register a WinRT event by wrapping it in a compatible object.
-		Used by all Toast Notification functions that require a result.
-	.PARAMETER Target
-		Toast Notification object to which events will be wrapped.
-	.PARAMETER EventName
-		Triggering event.
-	.INPUTS
-		None
-		You cannot pipe objects to this function.
-	.OUTPUTS
-		None
-		This function does not generate any output.
-	.EXAMPLE
-		Register-WrappedToastNotificationEvent -Target $ToastNotificationObject -EventName 'Activated'
-	.NOTES
-		This is an internal script function and should typically not be called directly.
-		Author: Leonardo Franco Maragna
-		Part of Toast Notification Extension
-	.LINK
-		https://github.com/LFM8787/PSADT.ToastNotification
-		http://psappdeploytoolkit.com
-	#>
-	[CmdletBinding()]
-	Param (
-		[Parameter(Mandatory = $true)]
-		[Windows.UI.Notifications.ToastNotification]$Target,
-		[Parameter(Mandatory = $true)]
-		[ValidateSet("Activated", "Dismissed", "Failed")]
-		[string]$EventName
-	)
-
-	Begin {
-		## Get the name of this function and write header
-		[string]${CmdletName} = $PSCmdlet.MyInvocation.MyCommand.Name
-		Write-FunctionHeaderOrFooter -CmdletName ${CmdletName} -CmdletBoundParameters $PSBoundParameters -Header
-	}
-	Process {
-		## Wrap WinRT Event based in the name
-		switch ($EventName) {
-			"Activated" { $EventType = "System.Object" }
-			"Dismissed" { $EventType = "Windows.UI.Notifications.ToastDismissedEventArgs" }
-			"Failed" { $EventType = "Windows.UI.Notifications.ToastFailedEventArgs" }
-		}
-
-		$EventWrapper = New-Object "PoshWinRT.EventWrapper[Windows.UI.Notifications.ToastNotification,$($EventType)]"
-		$EventWrapper.Register($Target, $EventName)
-	}
-	End {
-		Write-FunctionHeaderOrFooter -CmdletName ${CmdletName} -Footer
-	}
-}
-#endregion
-
-
-#region Function Register-ToastNotificationEvents
-Function Register-ToastNotificationEvents {
-	<#
-	.SYNOPSIS
-		Registers the events triggered by the notification.
-	.DESCRIPTION
-		Registers the events triggered by the notification.
-		Used by all Toast Notification functions that require a result.
-	.PARAMETER ToastNotificationObject
-		Toast Notification object to which events will be registered.
-	.PARAMETER ResultVariable
-		Part of the name of the result variable.
-	.INPUTS
-		None
-		You cannot pipe objects to this function.
-	.OUTPUTS
-		Boolean
-		Returns $true if the Toast Notification events could be registered.
-	.EXAMPLE
-		Register-ToastNotificationEvents -ToastNotificationObject $ToastNotificationObject -ResultVariable 'DialogBox'
-	.NOTES
-		This is an internal script function and should typically not be called directly.
-		Author: Leonardo Franco Maragna
-		Part of Toast Notification Extension
-	.LINK
-		https://github.com/LFM8787/PSADT.ToastNotification
-		http://psappdeploytoolkit.com
-	#>
-	[CmdletBinding()]
-	Param (
-		[Parameter(Mandatory = $true)]
-		[Windows.UI.Notifications.ToastNotification]$ToastNotificationObject,
-		[Parameter(Mandatory = $true)]
-		[ValidateNotNullorEmpty()]
-		[string]$ResultVariable
-	)
-
-	Begin {
-		## Get the name of this function and write header
-		[string]${CmdletName} = $PSCmdlet.MyInvocation.MyCommand.Name
-		Write-FunctionHeaderOrFooter -CmdletName ${CmdletName} -CmdletBoundParameters $PSBoundParameters -Header
-	}
-	Process {
-		## Wrap WinRT event using PoshWinRt.dll
-		try {
-			if ([int]$envPSVersionMajor -lt 7) {
-				$EventActivated = [PSCustomObject]@{ InputObject = Register-WrappedToastNotificationEvent -Target $ToastNotificationObject -EventName "Activated"; EventName = "FireEvent" }
-				$EventDismissed = [PSCustomObject]@{ InputObject = Register-WrappedToastNotificationEvent -Target $ToastNotificationObject -EventName "Dismissed"; EventName = "FireEvent" }
-				$EventFailed = [PSCustomObject]@{ InputObject = Register-WrappedToastNotificationEvent -Target $ToastNotificationObject -EventName "Failed"; EventName = "FireEvent" }
-			}
-			else {
-				$EventActivated = [PSCustomObject]@{ InputObject = $ToastNotificationObject; EventName = "Activated" }
-				$EventDismissed = [PSCustomObject]@{ InputObject = $ToastNotificationObject; EventName = "Dismissed" }
-				$EventFailed = [PSCustomObject]@{ InputObject = $ToastNotificationObject; EventName = "Failed" }
-			}
-		}
-		catch {
-			Write-Log -Message "Unable to wrap Toast Notification WinRT Events.`r`n$(Resolve-Error)" -Severity 3 -Source ${CmdletName} -DebugMessage
-
-			$configToastNotificationGeneralOptions.SubscribeToEvents = $false
-			Invoke-Command -ScriptBlock $SetSubscribeToEventsProperties -NoNewScope
-			return $false
-		}
-
-		## Trying to register the (wrapped) events
-		try {
-			$null = Register-ObjectEvent -SourceIdentifier "PSADT.$($ResultVariable)EventActivated" -InputObject $EventActivated.InputObject -MessageData $ResultVariable -EventName $EventActivated.EventName -Action {
-				if ([string]::IsNullOrWhiteSpace((Get-Variable -Name "$($Event.MessageData)" -Scope Global -ValueOnly))) {
-					Set-Variable -Name "$($Event.MessageData)" -Scope Global -Value ([string]$Event.SourceArgs[1].Result.Arguments) -Force
-				}
-			}
-			$null = Register-ObjectEvent -SourceIdentifier "PSADT.$($ResultVariable)EventDismissed" -InputObject $EventDismissed.InputObject -MessageData $ResultVariable -EventName $EventDismissed.EventName -Action {
-				if ([string]::IsNullOrWhiteSpace((Get-Variable -Name "$($Event.MessageData)" -Scope Global -ValueOnly))) {
-					Set-Variable -Name "$($Event.MessageData)" -Scope Global -Value ([string]$Event.SourceArgs[1].Result.Reason) -Force
-				}
-			}
-			$null = Register-ObjectEvent -SourceIdentifier "PSADT.$($ResultVariable)EventFailed" -InputObject $EventFailed.InputObject -MessageData $ResultVariable -EventName $EventFailed.EventName -Action {
-				if ([string]::IsNullOrWhiteSpace((Get-Variable -Name "$($Event.MessageData)" -Scope Global -ValueOnly))) {
-					Set-Variable -Name "$($Event.MessageData)" -Scope Global -Value ([string]$Event.SourceArgs[1].Result.ErrorCode) -Force
-				}
-			}
-		}
-		catch {
-			Write-Log -Message "Unable to register Toast Notification Events.`r`n$(Resolve-Error)" -Severity 3 -Source ${CmdletName} -DebugMessage
-
-			$configToastNotificationGeneralOptions.SubscribeToEvents = $false
-			Invoke-Command -ScriptBlock $SetSubscribeToEventsProperties -NoNewScope
-			return $false
-		}
-
-		## Verify if the Events were registered
-		$EventJobs = Get-Job | Where-Object { $_.Name -like "PSADT.$($ResultVariable)Event*" }
-
-		if ($EventJobs) {
-			return $true
-		}
-		else {
-			Write-Log -Message "No registered Toast Notification Events found." -Severity 3 -Source ${CmdletName} -DebugMessage
-
-			$configToastNotificationGeneralOptions.SubscribeToEvents = $false
-			Invoke-Command -ScriptBlock $SetSubscribeToEventsProperties -NoNewScope
-			return $false
-		}
-	}
-	End {
-		Write-FunctionHeaderOrFooter -CmdletName ${CmdletName} -Footer
-	}
-}
-#endregion
-
-
-#region Function Unregister-ToastNotificationEvents
-Function Unregister-ToastNotificationEvents {
-	<#
-	.SYNOPSIS
-		Stops and removes previously registered events.
-	.DESCRIPTION
-		Stops and removes previously registered events.
-		Used by all Toast Notification functions that require a result.
-	.PARAMETER ResultVariable
-		Part of the name of the result variable.
-	.INPUTS
-		None
-		You cannot pipe objects to this function.
-	.OUTPUTS
-		None
-		This function does not generate any output.
-	.EXAMPLE
-		Unregister-ToastNotificationEvents -ResultVariable 'DialogBox'
-	.NOTES
-		This is an internal script function and should typically not be called directly.
-		Author: Leonardo Franco Maragna
-		Part of Toast Notification Extension
-	.LINK
-		https://github.com/LFM8787/PSADT.ToastNotification
-		http://psappdeploytoolkit.com
-	#>
-	[CmdletBinding()]
-	Param (
-		[Parameter(Mandatory = $true)]
-		[ValidateNotNullorEmpty()]
-		[string]$ResultVariable
-	)
-
-	Begin {
-		## Get the name of this function and write header
-		[string]${CmdletName} = $PSCmdlet.MyInvocation.MyCommand.Name
-		Write-FunctionHeaderOrFooter -CmdletName ${CmdletName} -CmdletBoundParameters $PSBoundParameters -Header
-	}
-	Process {
-		## Unregister any Toast Notification event previously registered
-		try {
-			$EventJobs = Get-Job | Where-Object { $_.Name -like "PSADT.$($ResultVariable)Event*" }
-			$null = $EventJobs | Stop-Job
-			$null = $EventJobs | Remove-Job -Force
-		}
-		catch {}
-	}
-	End {
-		Write-FunctionHeaderOrFooter -CmdletName ${CmdletName} -Footer
-	}
-}
-#endregion
-
 #endregion
 ##*===============================================
 ##* END FUNCTION LISTINGS
@@ -6676,7 +6635,7 @@ $xmlLoadLocalizedUIMessages = [scriptblock]::Create($xmlLoadLocalizedUIMessages.
 if ($showBlockedAppDialog) {
 	## Set the install phase to asynchronous if the script was not dot sourced, i.e. called with parameters
 	if ($AsyncToolkitLaunch) {
-		$installPhase = 'Asynchronous'
+		$installPhase = "Asynchronous"
 	}
 
 	## Disable logging
@@ -6684,6 +6643,9 @@ if ($showBlockedAppDialog) {
 
 	## Dot source ScriptBlock to get a list of all users logged on to the system (both local and RDP users), and discover session details for account executing script
 	. $GetLoggedOnUserDetails
+
+	## Dot source ScriptBlock to create temporary directory of logged on user
+	. $GetLoggedOnUserTempPath
 
 	## Dot source ScriptBlock to load localized UI messages from config XML
 	. $xmlLoadLocalizedUIMessages

@@ -1,4 +1,4 @@
-# PSADT.ToastNotification 1.0
+# PSADT.ToastNotification
 Extension for PowerShell App Deployment Toolkit that replaces all the windows and dialogs with Toast Notifications with a lot of visual and functional improvements.
 
 ## Features
@@ -16,6 +16,7 @@ Extension for PowerShell App Deployment Toolkit that replaces all the windows an
 - Dynamically update running applications with icons and extended applications information.
 - Fallback to original Windows Forms and dialogs if any error occurs.
 - New dedicated strings with multilanguage support.
+- Automatically translates compatible buttons in functions.
 
 ## Disclaimer
 ```diff
@@ -266,6 +267,13 @@ https://user-images.githubusercontent.com/13755139/218119133-639d152d-1b72-4026-
 ## Internal functions
 `This set of functions are internals and are not designed to be called directly`
 * **New-DynamicFunction** - Defines a new function with the given name, scope and content given.
+* **New-ToastNotificationParameters** - Constructs the variables array used by the user invokation function.
+* **Invoke-ToastNotificationAsUser** - Shows and Updates the Toast Notification as active user.
+	* **Set-ResultVariable** - Sets a result value given as parameter to the result variable.
+	* **Test-ToastNotificationVisible** - Determines if the previously raised notification is visible.
+	* **Register-WrappedToastNotificationEvent** - Register a WinRT event by wrapping it in a compatible object.
+	* **Register-ToastNotificationEvents** - Registers the events triggered by the notification.
+* **New-ToastNotificationResourceFolder** - Creates a folder where the icons and library will be located.
 * **New-ToastNotificationAppId** - Registers the application identifier in registry.
 * **New-ToastNotificationProtocol** - Registers the protocol in registry.
 * **New-ToastNotificationProtocolCommandFile** - Creates a new file with the script used by the protocol.
@@ -281,9 +289,6 @@ https://user-images.githubusercontent.com/13755139/218119133-639d152d-1b72-4026-
 * **Get-ToastNotificationResult** - Obtains the result of the execution and/or test of the protocol.
 * **Remove-ToastNotificationResult** - Removes any previous result when using protocol.
 * **Clear-ToastNotificationHistory** - Clear previously shown notifications from history.
-* **Register-WrappedToastNotificationEvent** - Register a WinRT event by wrapping it in a compatible object.
-* **Register-ToastNotificationEvents** - Registers the events triggered by the notification.
-* **Unregister-ToastNotificationEvents** - Stops and removes previously registered events.
 
 ## Configuration File
 General options and extended configuration for the wrapped functions:
@@ -368,7 +373,7 @@ Before editing the Toast Notification visual style see [App notification content
 </table>
 
 ## How to Install
-#### 1. Download and copy into Toolkit folder.
+#### 1. Download and extract into Toolkit folder.
 #### 2. Edit *AppDeployToolkitExtensions.ps1* file and add the following lines.
 #### 3. Create an empty array (only once if multiple extensions):
 ```PowerShell
@@ -411,7 +416,8 @@ foreach ($Extension in $ExtensionToLoad) {
 * Powershell 5.1+
 * PSAppDeployToolkit 3.8.4+
 * [PSADT.VolatilePaths Extension](https://github.com/LFM8787/PSADT.VolatilePaths)
-* [PSADT.DataExtraction  Extension](https://github.com/LFM8787/PSADT.DataExtraction)
+* [PSADT.DataExtraction Extension](https://github.com/LFM8787/PSADT.DataExtraction)
+* [PSADT.RunAsActiveUser Extension](https://github.com/LFM8787/PSADT.RunAsActiveUser)
 
 ## Multilanguage support progress (feel free to upload translated strings):
 * 🇺🇸 100%
@@ -440,7 +446,8 @@ foreach ($Extension in $ExtensionToLoad) {
 ## External Links
 * [PowerShell App Deployment Toolkit](https://psappdeploytoolkit.com/)
 * [PSADT.VolatilePaths Extension](https://github.com/LFM8787/PSADT.VolatilePaths)
-* [PSADT.DataExtraction  Extension](https://github.com/LFM8787/PSADT.DataExtraction)
+* [PSADT.DataExtraction Extension](https://github.com/LFM8787/PSADT.DataExtraction)
+* [PSADT.RunAsActiveUser Extension](https://github.com/LFM8787/PSADT.RunAsActiveUser)
 * [about Comparison Operators - PowerShell | Microsoft Learn](https://learn.microsoft.com/en-us/powershell/module/microsoft.powershell.core/about/about_comparison_operators?view=powershell-7.3#-like-and--notlike)
 * [App notification content - Windows apps | Microsoft Learn](https://learn.microsoft.com/en-us/windows/apps/design/shell/tiles-and-notifications/adaptive-interactive-toasts?tabs=appsdk)
 * [Toast content schema - Windows apps | Microsoft Learn](https://learn.microsoft.com/en-us/windows/apps/design/shell/tiles-and-notifications/toast-schema)
