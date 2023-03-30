@@ -5,8 +5,8 @@
 	Replaces all the windows and dialogs with Toast Notifications with a lot of visual and functional improvements.
 .NOTES
 	Author:  Leonardo Franco Maragna
-	Version: 1.1
-	Date:    2023/03/28
+	Version: 1.1.1
+	Date:    2023/03/30
 #>
 [CmdletBinding()]
 Param (
@@ -20,8 +20,8 @@ Param (
 ## Variables: Extension Info
 $ToastNotificationExtName = "ToastNotificationExtension"
 $ToastNotificationExtScriptFriendlyName = "Toast Notification Extension"
-$ToastNotificationExtScriptVersion = "1.1"
-$ToastNotificationExtScriptDate = "2023/03/28"
+$ToastNotificationExtScriptVersion = "1.1.1"
+$ToastNotificationExtScriptDate = "2023/03/30"
 $ToastNotificationExtSubfolder = "PSADT.ToastNotification"
 $ToastNotificationExtConfigFileName = "ToastNotificationConfig.xml"
 
@@ -480,8 +480,10 @@ $FunctionsToRename += [PSCustomObject]@{ Scope = "Script"; Name = "Close-Install
 		## Checks if the Toast Notification is visible
 		$ToastNotificationVisible = Test-ToastNotificationVisible -Group $ToastNotificationGroup
 
-		## Get Toast Notification result from environment variable
-		$Result = Get-ToastNotificationResult -AllowedResults $AllowedResults -ResultVariable $ResultVariable
+		## Get Toast Notification result from environment variable if not assigned
+		if ([string]::IsNullOrWhiteSpace($Result)) {
+			$Result = Get-ToastNotificationResult -AllowedResults $AllowedResults -ResultVariable $ResultVariable
+		}
 
 		Write-Log -Message "Toast Notification result before switch [$Result]." -Severity 2 -Source ${CmdletName} -DebugMessage
 

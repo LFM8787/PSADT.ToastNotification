@@ -7,8 +7,8 @@
 -->
 	<!--Configuration File Details-->
 	<Config_File>
-		<Config_Version>1.1</Config_Version>
-		<Config_Date>2023/03/28</Config_Date>
+		<Config_Version>1.1.1</Config_Version>
+		<Config_Date>2023/03/30</Config_Date>
 	</Config_File>
 
 	<!--Toast Notification General Options-->
