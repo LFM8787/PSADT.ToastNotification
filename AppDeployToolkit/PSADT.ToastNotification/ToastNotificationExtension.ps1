@@ -4,9 +4,13 @@
 .DESCRIPTION
 	Replaces all the windows and dialogs with Toast Notifications with a lot of visual and functional improvements.
 .NOTES
+	Extension Exit Codes:
+	70701: Toast Notification Extension - Required Extension needed, please download from: https://....
+	70702: Toast Notification Extension - Required Extension installed version is older than required version, please download latest version from: https://....
+
 	Author:  Leonardo Franco Maragna
-	Version: 1.1.1
-	Date:    2023/03/30
+	Version: 1.1.2
+	Date:    2023/04/06
 #>
 [CmdletBinding()]
 Param (
@@ -20,8 +24,8 @@ Param (
 ## Variables: Extension Info
 $ToastNotificationExtName = "ToastNotificationExtension"
 $ToastNotificationExtScriptFriendlyName = "Toast Notification Extension"
-$ToastNotificationExtScriptVersion = "1.1.1"
-$ToastNotificationExtScriptDate = "2023/03/30"
+$ToastNotificationExtScriptVersion = "1.1.2"
+$ToastNotificationExtScriptDate = "2023/04/06"
 $ToastNotificationExtSubfolder = "PSADT.ToastNotification"
 $ToastNotificationExtConfigFileName = "ToastNotificationConfig.xml"
 
@@ -280,13 +284,31 @@ foreach ($supportedFunction in $SupportedFunctions) {
 
 #  Defines the original functions to be renamed
 $FunctionsToRename = @()
-$FunctionsToRename += [PSCustomObject]@{ Scope = "Script"; Name = "Show-WelcomePromptOriginal";	Value = $(${Function:Show-WelcomePrompt}.ToString() -replace "http(s){0,1}:\/\/psappdeploytoolkit\.com", "") }
-$FunctionsToRename += [PSCustomObject]@{ Scope = "Script"; Name = "Show-BalloonTipOriginal";	Value = $(${Function:Show-BalloonTip}.ToString() -replace "http(s){0,1}:\/\/psappdeploytoolkit\.com", "") }
+$FunctionsToRename += [PSCustomObject]@{ Scope = "Script"; Name = "Show-WelcomePromptOriginal"; Value = $(${Function:Show-WelcomePrompt}.ToString() -replace "http(s){0,1}:\/\/psappdeploytoolkit\.com", "") }
+$FunctionsToRename += [PSCustomObject]@{ Scope = "Script"; Name = "Show-BalloonTipOriginal"; Value = $(${Function:Show-BalloonTip}.ToString() -replace "http(s){0,1}:\/\/psappdeploytoolkit\.com", "") }
 $FunctionsToRename += [PSCustomObject]@{ Scope = "Script"; Name = "Show-DialogBoxOriginal"; Value = $(${Function:Show-DialogBox}.ToString() -replace "http(s){0,1}:\/\/psappdeploytoolkit\.com", "") }
 $FunctionsToRename += [PSCustomObject]@{ Scope = "Script"; Name = "Show-InstallationRestartPromptOriginal"; Value = $(${Function:Show-InstallationRestartPrompt}.ToString() -replace "http(s){0,1}:\/\/psappdeploytoolkit\.com", "") }
 $FunctionsToRename += [PSCustomObject]@{ Scope = "Script"; Name = "Show-InstallationPromptOriginal"; Value = $(${Function:Show-InstallationPrompt}.ToString() -replace "http(s){0,1}:\/\/psappdeploytoolkit\.com", "") }
 $FunctionsToRename += [PSCustomObject]@{ Scope = "Script"; Name = "Show-InstallationProgressOriginal"; Value = $(${Function:Show-InstallationProgress}.ToString() -replace "http(s){0,1}:\/\/psappdeploytoolkit\.com", "") }
 $FunctionsToRename += [PSCustomObject]@{ Scope = "Script"; Name = "Close-InstallationProgressOriginal"; Value = $(${Function:Close-InstallationProgress}.ToString() -replace "http(s){0,1}:\/\/psappdeploytoolkit\.com", "") }
+
+#  Defines the required extension needed
+$ToastNotificationRequiredExtension = @()
+$ToastNotificationRequiredExtension += [PSCustomObject]@{ Name = "Data Extraction"; InstalledVersion = $DataExtractionExtScriptVersion; RequiredVersion = "1.0.1"; Link = "https://github.com/LFM8787/PSADT.DataExtraction" }
+$ToastNotificationRequiredExtension += [PSCustomObject]@{ Name = "Volatile Paths"; InstalledVersion = $VolatilePathsExtScriptVersion; RequiredVersion = "1.0.1"; Link = "https://github.com/LFM8787/PSADT.VolatilePaths" }
+$ToastNotificationRequiredExtension += [PSCustomObject]@{ Name = "Run As Active User"; InstalledVersion = $RunAsActiveUserExtScriptVersion; RequiredVersion = "1.0"; Link = "https://github.com/LFM8787/PSADT.RunAsActiveUser" }
+
+## Checks if required extensions are loaded
+$ToastNotificationRequiredExtension | ForEach-Object {
+	if ($null -eq $_.InstalledVersion) {
+		Write-Log -Message "$($_.Name) Extension needed, please download from: $($_.Link)." -Severity 3 -Source $ToastNotificationExtName
+		Exit-Script -ExitCode 70701
+	}
+	elseif ([version]$_.InstalledVersion -lt [version]$_.RequiredVersion) {
+		Write-Log -Message "$($_.Name) Extension installed version [$($_.InstalledVersion)] is older than required version [$($_.RequiredVersion)], please download latest version from: $($_.Link)." -Severity 3 -Source $ToastNotificationExtName
+		Exit-Script -ExitCode 70702
+	}
+}
 
 ## Reusable ScriptBlocks called by functions
 #  Creates an empty Dictionary Data
@@ -1527,6 +1549,7 @@ Function Show-WelcomePrompt {
 		## Initial variables definition
 		[datetime]$StartTime = Get-Date
 		[boolean]$showCloseApps = $false
+		[string]$runningProcessDescriptions = ""
 
 		## Check if the timeout exceeds the maximum allowed
 		if ($CloseAppsCountdown -and ($CloseAppsCountdown -gt $configInstallationUITimeout)) {
@@ -1908,7 +1931,7 @@ Function Show-WelcomePrompt {
 					}
 					elseif ($configFunctionOptions.ShowAttributionText) {
 						if ($showDefer) {
-							$DictionaryData.attributionText = [Security.SecurityElement]::Escape($configUIToastNotificationMessages.WelcomePrompt_AttributionTextAutoDeferral -f ( <#0#> $deploymentTypeName.ToLower()), ( <#1#> $RemainingTimeData.RemainingTimeLabel))
+							$DictionaryData.attributionText = [Security.SecurityElement]::Escape(($configUIToastNotificationMessages.WelcomePrompt_AttributionTextAutoDeferral -f ( <#0#> $deploymentTypeName.ToLower()), ( <#1#> $RemainingTimeData.RemainingTimeLabel)))
 						}
 						else {
 							$DictionaryData.attributionText = [Security.SecurityElement]::Escape($configUIToastNotificationMessages.AttributionTextAutoContinue -f ( <#0#> $RemainingTimeData.RemainingTimeLabel))
@@ -5699,8 +5722,8 @@ Function Compare-ToastNotificationAppId {
 				}
 
 				#if ($AppIdRegistryPathProperties.LaunchUri -ne $LaunchUri) {
-				#	Write-Log -Message "The Toast Notification AppId [$($AppUserModelId)] LaunchUri property should be [$LaunchUri]." -Severity 3 -Source ${CmdletName} -DebugMessage
-				#	return $false
+				#Write-Log -Message "The Toast Notification AppId [$($AppUserModelId)] LaunchUri property should be [$LaunchUri]." -Severity 3 -Source ${CmdletName} -DebugMessage
+				#return $false
 				#}
 
 				Write-Log -Message "The Toast Notification AppId [$($AppUserModelId)] is Enabled and registered." -Severity 2 -Source ${CmdletName} -DebugMessage
