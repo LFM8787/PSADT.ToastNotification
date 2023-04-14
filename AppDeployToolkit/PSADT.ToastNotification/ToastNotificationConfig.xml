@@ -7,8 +7,8 @@
 -->
 	<!--Configuration File Details-->
 	<Config_File>
-		<Config_Version>1.1.1</Config_Version>
-		<Config_Date>2023/03/30</Config_Date>
+		<Config_Version>1.1.3</Config_Version>
+		<Config_Date>2023/04/14</Config_Date>
 	</Config_File>
 
 	<!--Toast Notification General Options-->
@@ -23,7 +23,7 @@
 		<SubscribeToEvents>True</SubscribeToEvents>
 		<!-- [True/False] - Attempts to register events raised by the Toast Notification object. -->
 		<ShowToastNotificationAsyncTimeout>10</ShowToastNotificationAsyncTimeout>
-		<!-- Timout in seconds to obtain the invoked process Id. -->
+		<!-- Timeout in seconds to obtain the invoked process Id. -->
 
 		<LimitTimeoutToInstallationUI>True</LimitTimeoutToInstallationUI>
 		<!-- [True/False] - If any wrapped function timeout exceeds the defined in the XML configuration, use that value. -->
@@ -216,9 +216,9 @@
 		<ShowAttributionText>True</ShowAttributionText>
 
 		<ImageHeroShow>False</ImageHeroShow>
-		<ImageHeroFileName>No file</ImageHeroFileName>
+		<ImageHeroFileName>No_file</ImageHeroFileName>
 		<ImageAppLogoOverrideShow>True</ImageAppLogoOverrideShow>
-		<ImageAppLogoOverrideFileName>No file</ImageAppLogoOverrideFileName>
+		<ImageAppLogoOverrideFileName>No_file</ImageAppLogoOverrideFileName>
 		<ImageAppLogoOverrideCircularCrop>False</ImageAppLogoOverrideCircularCrop>
 
 		<!-- <ShowApplicationsIcons>True</ShowApplicationsIcons> -->
@@ -303,10 +303,10 @@
 		<ShowAttributionText>True</ShowAttributionText>
 
 		<ImageHeroShow>True</ImageHeroShow>
-		<ImageHeroFileName>Mercadona_Hero.png</ImageHeroFileName>
+		<ImageHeroFileName>InstallationPrompt_Hero.gif</ImageHeroFileName>
 		<ImageAppLogoOverrideShow>True</ImageAppLogoOverrideShow>
-		<ImageAppLogoOverrideFileName>No file</ImageAppLogoOverrideFileName>
-		<ImageAppLogoOverrideCircularCrop>True</ImageAppLogoOverrideCircularCrop>
+		<ImageAppLogoOverrideFileName>No_file</ImageAppLogoOverrideFileName>
+		<ImageAppLogoOverrideCircularCrop>False</ImageAppLogoOverrideCircularCrop>
 
 		<!-- <ShowApplicationsIcons>True</ShowApplicationsIcons> -->
 		<!-- <ApplicationsIconsSize>ExtraLarge</ApplicationsIconsSize> -->
