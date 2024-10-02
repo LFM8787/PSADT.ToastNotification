@@ -2,13 +2,13 @@
 <ToastNotification_Config>
 <!--# LICENSE #
 	PowerShell App Deployment Toolkit - Toast Notification Extension.
-	Copyright (C) 2023 - Leonardo Franco Maragna.
+	Copyright (C) 2024 - Leonardo Franco Maragna.
 	https://github.com/LFM8787/PSADT.ToastNotification
 -->
 	<!--Configuration File Details-->
 	<Config_File>
-		<Config_Version>1.1.3</Config_Version>
-		<Config_Date>2023/04/14</Config_Date>
+		<Config_Version>1.1.4</Config_Version>
+		<Config_Date>2024/10/02</Config_Date>
 	</Config_File>
 
 	<!--Toast Notification General Options-->
@@ -23,7 +23,9 @@
 		<SubscribeToEvents>True</SubscribeToEvents>
 		<!-- [True/False] - Attempts to register events raised by the Toast Notification object. -->
 		<ShowToastNotificationAsyncTimeout>10</ShowToastNotificationAsyncTimeout>
-		<!-- Timeout in seconds to obtain the invoked process Id. -->
+		<!-- Timeout in seconds to obtain the invoked process Id. Integer number greather than 5. -->
+		<MaxToastNotificationErrorsThreshold>5</MaxToastNotificationErrorsThreshold>
+		<!-- Max errors tolerated when trying to determine the Toast Notification Result. Integer number between 4 and 10. -->
 
 		<LimitTimeoutToInstallationUI>True</LimitTimeoutToInstallationUI>
 		<!-- [True/False] - If any wrapped function timeout exceeds the defined in the XML configuration, use that value. -->

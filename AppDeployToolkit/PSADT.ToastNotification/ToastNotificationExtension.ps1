@@ -9,8 +9,8 @@
 	70702: Toast Notification Extension - Required Extension installed version is older than required version, please download latest version from: https://....
 
 	Author:  Leonardo Franco Maragna
-	Version: 1.1.3
-	Date:    2023/04/14
+	Version: 1.1.4
+	Date:    2024/10/02
 #>
 [CmdletBinding()]
 Param (
@@ -24,8 +24,8 @@ Param (
 ## Variables: Extension Info
 $ToastNotificationExtName = "ToastNotificationExtension"
 $ToastNotificationExtScriptFriendlyName = "Toast Notification Extension"
-$ToastNotificationExtScriptVersion = "1.1.3"
-$ToastNotificationExtScriptDate = "2023/04/14"
+$ToastNotificationExtScriptVersion = "1.1.4"
+$ToastNotificationExtScriptDate = "2024/10/02"
 $ToastNotificationExtSubfolder = "PSADT.ToastNotification"
 $ToastNotificationExtConfigFileName = "ToastNotificationConfig.xml"
 
@@ -52,34 +52,111 @@ $ProcessObjectsTitlePathRegExPattern = "(?<=(title:|path:)).+"
 		$Parameter
 	)
 
-	switch ($Parameter) {
-		"OK" { [string](Get-StringFromFile -Path $envUser32LibraryPath -StringID 800 -DisableFunctionLogging).Replace("&", "") }
-		"Cancel" { [string](Get-StringFromFile -Path $envUser32LibraryPath -StringID 801 -DisableFunctionLogging).Replace("&", "") }
-		"Abort" { [string](Get-StringFromFile -Path $envUser32LibraryPath -StringID 802 -DisableFunctionLogging).Replace("&", "") }
-		"Retry" { [string](Get-StringFromFile -Path $envUser32LibraryPath -StringID 803 -DisableFunctionLogging).Replace("&", "") }
-		"Ignore" { [string](Get-StringFromFile -Path $envUser32LibraryPath -StringID 804 -DisableFunctionLogging).Replace("&", "") }
-		"Yes" { [string](Get-StringFromFile -Path $envUser32LibraryPath -StringID 805 -DisableFunctionLogging).Replace("&", "") }
-		"No" { [string](Get-StringFromFile -Path $envUser32LibraryPath -StringID 806 -DisableFunctionLogging).Replace("&", "") }
-		"Close" { [string](Get-StringFromFile -Path $envUser32LibraryPath -StringID 807 -DisableFunctionLogging).Replace("&", "") }
-		"Help" { [string](Get-StringFromFile -Path $envUser32LibraryPath -StringID 808 -DisableFunctionLogging).Replace("&", "") }
-		"TryAgain" { [string](Get-StringFromFile -Path $envUser32LibraryPath -StringID 809 -DisableFunctionLogging).Replace("&", "") }
-		"Continue" { [string](Get-StringFromFile -Path $envUser32LibraryPath -StringID 810 -DisableFunctionLogging).Replace("&", "") }
-		default { $Parameter }
+	try {
+		switch ($Parameter) {
+			"OK" { [string](Get-StringFromFile -Path $envUser32LibraryPath -StringID 800 -DisableFunctionLogging).Replace("&", "") }
+			"Cancel" { [string](Get-StringFromFile -Path $envUser32LibraryPath -StringID 801 -DisableFunctionLogging).Replace("&", "") }
+			"Abort" { [string](Get-StringFromFile -Path $envUser32LibraryPath -StringID 802 -DisableFunctionLogging).Replace("&", "") }
+			"Retry" { [string](Get-StringFromFile -Path $envUser32LibraryPath -StringID 803 -DisableFunctionLogging).Replace("&", "") }
+			"Ignore" { [string](Get-StringFromFile -Path $envUser32LibraryPath -StringID 804 -DisableFunctionLogging).Replace("&", "") }
+			"Yes" { [string](Get-StringFromFile -Path $envUser32LibraryPath -StringID 805 -DisableFunctionLogging).Replace("&", "") }
+			"No" { [string](Get-StringFromFile -Path $envUser32LibraryPath -StringID 806 -DisableFunctionLogging).Replace("&", "") }
+			"Close" { [string](Get-StringFromFile -Path $envUser32LibraryPath -StringID 807 -DisableFunctionLogging).Replace("&", "") }
+			"Help" { [string](Get-StringFromFile -Path $envUser32LibraryPath -StringID 808 -DisableFunctionLogging).Replace("&", "") }
+			"TryAgain" { [string](Get-StringFromFile -Path $envUser32LibraryPath -StringID 809 -DisableFunctionLogging).Replace("&", "") }
+			"Continue" { [string](Get-StringFromFile -Path $envUser32LibraryPath -StringID 810 -DisableFunctionLogging).Replace("&", "") }
+			default { $Parameter }
+		}
+	}
+	catch {
+		Write-Log -Message "The button [$Parameter] couldn't be translated, the default english string will be used." -Severity 2 -Source $ToastNotificationExtName
+		$Parameter
 	}
 }
 
 ## Variables: Resolve Parameters. For backward compatibility
-if (-not (Test-Path "variable:ResolveParameters")) {
-	[scriptblock]$ResolveParameters = {
+if (-not (Test-Path "function:Resolve-Parameters")) {
+	filter Resolve-Parameters {
+		<#
+		.SYNOPSIS
+			Resolve the parameters of a function call to a string.
+		.DESCRIPTION
+			Resolve the parameters of a function call to a string.
+		.PARAMETER Parameter
+			The name of the function this function is invoked from.
+		.INPUTS
+			System.Object
+		.OUTPUTS
+			System.Object
+		.EXAMPLE
+			Resolve-Parameters -Parameter $PSBoundParameters | Out-String
+		.NOTES
+			This is an internal script function and should typically not be called directly.
+		.LINK
+			https://psappdeploytoolkit.com
+		#>
 		Param (
 			[Parameter(Mandatory = $true, Position = 0, ValueFromPipeline = $true, ValueFromPipelineByPropertyName = $true)]
 			[ValidateNotNullOrEmpty()]$Parameter
 		)
-
-		switch -regex ($Parameter.Value.GetType().Name) {
-			"^(SwitchParameter|Boolean)$" { "-$($Parameter.Key):`$$($Parameter.Value.ToString().ToLower())" }
-			"^((u){0,1}int(\d)+|single|decimal|double)$" { "-$($Parameter.Key):$($Parameter.Value)" }
-			default { "-$($Parameter.Key):`'$($Parameter.Value)`'" }
+	
+		switch ($Parameter) {
+			{ $_.Value -is [System.Management.Automation.SwitchParameter] } {
+				"-$($_.Key):`$$($_.Value.ToString().ToLower())"
+				break
+			}
+			{ $_.Value -is [System.Boolean] } {
+				"-$($_.Key):`$$($_.Value.ToString().ToLower())"
+				break
+			}
+			{ $_.Value -is [System.Int16] } {
+				"-$($_.Key):$($_.Value)"
+				break
+			}
+			{ $_.Value -is [System.Int32] } {
+				"-$($_.Key):$($_.Value)"
+				break
+			}
+			{ $_.Value -is [System.Int64] } {
+				"-$($_.Key):$($_.Value)"
+				break
+			}
+			{ $_.Value -is [System.UInt16] } {
+				"-$($_.Key):$($_.Value)"
+				break
+			}
+			{ $_.Value -is [System.UInt32] } {
+				"-$($_.Key):$($_.Value)"
+				break
+			}
+			{ $_.Value -is [System.UInt64] } {
+				"-$($_.Key):$($_.Value)"
+				break
+			}
+			{ $_.Value -is [System.Single] } {
+				"-$($_.Key):$($_.Value)"
+				break
+			}
+			{ $_.Value -is [System.Double] } {
+				"-$($_.Key):$($_.Value)"
+				break
+			}
+			{ $_.Value -is [System.Decimal] } {
+				"-$($_.Key):$($_.Value)"
+				break
+			}
+			{ $_.Value -is [System.Collections.IDictionary] } {
+				"-$($_.Key):'$(($_.Value.GetEnumerator() | Resolve-Parameters).Replace("'",'"') -join "', '")'"
+				break
+			}
+			{ $_.Value -is [System.Collections.IEnumerable] } {
+				"-$($_.Key):'$($_.Value -join "', '")'"
+				break
+			}
+			default {
+				"-$($_.Key):'$($_.Value)'"
+				break
+			}
 		}
 	}
 }
@@ -104,12 +181,13 @@ catch {}
 
 #  Get Toast Notification General Options
 [Xml.XmlElement]$xmlToastNotificationOptions = $xmlToastNotificationConfig.ToastNotification_Options
-$configToastNotificationGeneralOptions = [PSCustomObject]@{
+$configToastNotificationGeneralOptions = @{
 	WorkingDirectory                                  = [string](Invoke-Expression -Command 'try { if (([IO.Path]::IsPathRooted($xmlToastNotificationOptions.WorkingDirectory)) -and (Test-Path -Path $xmlToastNotificationOptions.WorkingDirectory -IsValid)) { [string]($xmlToastNotificationOptions.WorkingDirectory).Trim() } else { $dirAppDeployTemp } } catch { $dirAppDeployTemp }') -replace "&|@", ""
 	TaggingVariable                                   = [string](Remove-InvalidFileNameChars -Name (Invoke-Expression -Command 'try { if (-not [string]::IsNullOrWhiteSpace($ExecutionContext.InvokeCommand.ExpandString($xmlToastNotificationOptions.TaggingVariable))) { $ExecutionContext.InvokeCommand.ExpandString($xmlToastNotificationOptions.TaggingVariable) } else { $installName } } catch { $installName }')) -replace "&| |@|\.", ""
 	ProtocolName                                      = [string](Remove-InvalidFileNameChars -Name (Invoke-Expression -Command 'try { if (-not [string]::IsNullOrWhiteSpace($ExecutionContext.InvokeCommand.ExpandString($xmlToastNotificationOptions.ProtocolName))) { $ExecutionContext.InvokeCommand.ExpandString($xmlToastNotificationOptions.ProtocolName) } else { "psadttoastnotification" } } catch { "psadttoastnotification" }')) -replace "&| |@|\.", ""
 	SubscribeToEvents                                 = Invoke-Expression -Command 'try { [boolean]::Parse([string]($xmlToastNotificationOptions.SubscribeToEvents)) } catch { $true }'
 	ShowToastNotificationAsyncTimeout                 = Invoke-Expression -Command 'try { if ([int32]::Parse([string]($xmlToastNotificationOptions.ShowToastNotificationAsyncTimeout)) -gt 5) { [int32]::Parse([string]($xmlToastNotificationOptions.ShowToastNotificationAsyncTimeout)) } else { 5 } } catch { 5 }'
+	MaxToastNotificationErrorsThreshold               = Invoke-Expression -Command 'try { if ([int32]::Parse([string]($xmlToastNotificationOptions.MaxToastNotificationErrorsThreshold)) -in @(4..10)) { [int32]::Parse([string]($xmlToastNotificationOptions.MaxToastNotificationErrorsThreshold)) } else { 5 } } catch { 5 }'
 
 	LimitTimeoutToInstallationUI                      = Invoke-Expression -Command 'try { [boolean]::Parse([string]($xmlToastNotificationOptions.LimitTimeoutToInstallationUI)) } catch { $true }'
 
@@ -130,60 +208,60 @@ $configToastNotificationGeneralOptions = [PSCustomObject]@{
 	InstallationRestartPrompt_ShowIcon                = Invoke-Expression -Command 'try { [boolean]::Parse([string]($xmlToastNotificationOptions.InstallationRestartPrompt_ShowIcon)) } catch { $false }'
 }
 
-$configToastNotificationGeneralOptions | Add-Member -MemberType NoteProperty -Name "ResourceFolder" -Value (Join-Path -Path $configToastNotificationGeneralOptions.WorkingDirectory -ChildPath $configToastNotificationGeneralOptions.ProtocolName | Join-Path -ChildPath $configToastNotificationGeneralOptions.TaggingVariable)
+$configToastNotificationGeneralOptions.ResourceFolder = Join-Path -Path $configToastNotificationGeneralOptions.WorkingDirectory -ChildPath $configToastNotificationGeneralOptions.ProtocolName | Join-Path -ChildPath $configToastNotificationGeneralOptions.TaggingVariable
 
 #  Defines and invokes the scriptblock that contains changes to the button logic
 [scriptblock]$SetSubscribeToEventsProperties = {
 	if ($configToastNotificationGeneralOptions.SubscribeToEvents) {
-		$configToastNotificationGeneralOptions | Add-Member -MemberType NoteProperty -Name "ActivationType" -Value "foreground" -Force
-		$configToastNotificationGeneralOptions | Add-Member -MemberType NoteProperty -Name "ArgumentsPrefix" -Value "" -Force
+		$configToastNotificationGeneralOptions.ActivationType = "foreground"
+		$configToastNotificationGeneralOptions.ArgumentsPrefix = ""
 	}
 	else {
-		$configToastNotificationGeneralOptions | Add-Member -MemberType NoteProperty -Name "ActivationType" -Value "protocol" -Force
-		$configToastNotificationGeneralOptions | Add-Member -MemberType NoteProperty -Name "ArgumentsPrefix" -Value ('{0}:' -f ( <#0#> $configToastNotificationGeneralOptions.ProtocolName)) -Force
+		$configToastNotificationGeneralOptions.ActivationType = "protocol"
+		$configToastNotificationGeneralOptions.ArgumentsPrefix = '{0}:' -f ( <#0#> $configToastNotificationGeneralOptions.ProtocolName)
 	}
 }
 Invoke-Command -ScriptBlock $SetSubscribeToEventsProperties -NoNewScope
 
 #  Defines and invokes the scriptblock that sets the icons size used in notifications
 [scriptblock]$SetIconSizeProperties = {
-	$configToastNotificationGeneralOptions | Add-Member -MemberType NoteProperty -Name "IconSize_Small_PreSpacing" -Value 9 -Force
-	$configToastNotificationGeneralOptions | Add-Member -MemberType NoteProperty -Name "IconSize_Small_TargetSize" -Value 16 -Force
-	$configToastNotificationGeneralOptions | Add-Member -MemberType NoteProperty -Name "IconSize_Small_TargetStacking" -Value "top" -Force
-	$configToastNotificationGeneralOptions | Add-Member -MemberType NoteProperty -Name "IconSize_Small_TargetRemoveMargin" -Value $false -Force
-	$configToastNotificationGeneralOptions | Add-Member -MemberType NoteProperty -Name "IconSize_Small_PostSpacing" -Value 16 -Force
-	$configToastNotificationGeneralOptions | Add-Member -MemberType NoteProperty -Name "IconSize_Small_BlockSize" -Value 270 -Force
-	$configToastNotificationGeneralOptions | Add-Member -MemberType NoteProperty -Name "IconSize_Small_BlockSizeCollapsed" -Value 300 -Force
+	$configToastNotificationGeneralOptions.IconSize_Small_PreSpacing = 9
+	$configToastNotificationGeneralOptions.IconSize_Small_TargetSize = 16
+	$configToastNotificationGeneralOptions.IconSize_Small_TargetStacking = "top"
+	$configToastNotificationGeneralOptions.IconSize_Small_TargetRemoveMargin = $false
+	$configToastNotificationGeneralOptions.IconSize_Small_PostSpacing = 16
+	$configToastNotificationGeneralOptions.IconSize_Small_BlockSize = 270
+	$configToastNotificationGeneralOptions.IconSize_Small_BlockSizeCollapsed = 300
 
-	$configToastNotificationGeneralOptions | Add-Member -MemberType NoteProperty -Name "IconSize_Large_PreSpacing" -Value 0 -Force
-	$configToastNotificationGeneralOptions | Add-Member -MemberType NoteProperty -Name "IconSize_Large_TargetSize" -Value 32 -Force
-	$configToastNotificationGeneralOptions | Add-Member -MemberType NoteProperty -Name "IconSize_Large_TargetStacking" -Value "center" -Force
-	$configToastNotificationGeneralOptions | Add-Member -MemberType NoteProperty -Name "IconSize_Large_TargetRemoveMargin" -Value $false -Force
-	$configToastNotificationGeneralOptions | Add-Member -MemberType NoteProperty -Name "IconSize_Large_PostSpacing" -Value 8 -Force
-	$configToastNotificationGeneralOptions | Add-Member -MemberType NoteProperty -Name "IconSize_Large_BlockSize" -Value 270 -Force
-	$configToastNotificationGeneralOptions | Add-Member -MemberType NoteProperty -Name "IconSize_Large_BlockSizeCollapsed" -Value 288 -Force
+	$configToastNotificationGeneralOptions.IconSize_Large_PreSpacing = 0
+	$configToastNotificationGeneralOptions.IconSize_Large_TargetSize = 32
+	$configToastNotificationGeneralOptions.IconSize_Large_TargetStacking = "center"
+	$configToastNotificationGeneralOptions.IconSize_Large_TargetRemoveMargin = $false
+	$configToastNotificationGeneralOptions.IconSize_Large_PostSpacing = 8
+	$configToastNotificationGeneralOptions.IconSize_Large_BlockSize = 270
+	$configToastNotificationGeneralOptions.IconSize_Large_BlockSizeCollapsed = 288
 
-	$configToastNotificationGeneralOptions | Add-Member -MemberType NoteProperty -Name "IconSize_ExtraLarge_PreSpacing" -Value $null -Force
-	$configToastNotificationGeneralOptions | Add-Member -MemberType NoteProperty -Name "IconSize_ExtraLarge_TargetSize" -Value 48 -Force
-	$configToastNotificationGeneralOptions | Add-Member -MemberType NoteProperty -Name "IconSize_ExtraLarge_TargetStacking" -Value "center" -Force
-	$configToastNotificationGeneralOptions | Add-Member -MemberType NoteProperty -Name "IconSize_ExtraLarge_TargetRemoveMargin" -Value $false -Force
-	$configToastNotificationGeneralOptions | Add-Member -MemberType NoteProperty -Name "IconSize_ExtraLarge_PostSpacing" -Value 0 -Force
-	$configToastNotificationGeneralOptions | Add-Member -MemberType NoteProperty -Name "IconSize_ExtraLarge_BlockSize" -Value 270 -Force
-	$configToastNotificationGeneralOptions | Add-Member -MemberType NoteProperty -Name "IconSize_ExtraLarge_BlockSizeCollapsed" -Value 274 -Force
+	$configToastNotificationGeneralOptions.IconSize_ExtraLarge_PreSpacing = $null
+	$configToastNotificationGeneralOptions.IconSize_ExtraLarge_TargetSize = 48
+	$configToastNotificationGeneralOptions.IconSize_ExtraLarge_TargetStacking = "center"
+	$configToastNotificationGeneralOptions.IconSize_ExtraLarge_TargetRemoveMargin = $false
+	$configToastNotificationGeneralOptions.IconSize_ExtraLarge_PostSpacing = 0
+	$configToastNotificationGeneralOptions.IconSize_ExtraLarge_BlockSize = 270
+	$configToastNotificationGeneralOptions.IconSize_ExtraLarge_BlockSizeCollapsed = 274
 
-	$configToastNotificationGeneralOptions | Add-Member -MemberType NoteProperty -Name "IconSize_Biggest_PreSpacing" -Value $null -Force
-	$configToastNotificationGeneralOptions | Add-Member -MemberType NoteProperty -Name "IconSize_Biggest_TargetSize" -Value 256 -Force
-	$configToastNotificationGeneralOptions | Add-Member -MemberType NoteProperty -Name "IconSize_Biggest_TargetStacking" -Value "center" -Force
-	$configToastNotificationGeneralOptions | Add-Member -MemberType NoteProperty -Name "IconSize_Biggest_TargetRemoveMargin" -Value $false -Force
-	$configToastNotificationGeneralOptions | Add-Member -MemberType NoteProperty -Name "IconSize_Biggest_PostSpacing" -Value 0 -Force
-	$configToastNotificationGeneralOptions | Add-Member -MemberType NoteProperty -Name "IconSize_Biggest_BlockSize" -Value 1008 -Force
-	$configToastNotificationGeneralOptions | Add-Member -MemberType NoteProperty -Name "IconSize_Biggest_BlockSizeCollapsed" -Value 1032 -Force
+	$configToastNotificationGeneralOptions.IconSize_Biggest_PreSpacing = $null
+	$configToastNotificationGeneralOptions.IconSize_Biggest_TargetSize = 256
+	$configToastNotificationGeneralOptions.IconSize_Biggest_TargetStacking = "center"
+	$configToastNotificationGeneralOptions.IconSize_Biggest_TargetRemoveMargin = $false
+	$configToastNotificationGeneralOptions.IconSize_Biggest_PostSpacing = 0
+	$configToastNotificationGeneralOptions.IconSize_Biggest_BlockSize = 1008
+	$configToastNotificationGeneralOptions.IconSize_Biggest_BlockSizeCollapsed = 1032
 }
 Invoke-Command -ScriptBlock $SetIconSizeProperties -NoNewScope
 
 #  Get Toast Notification AppId Options
 [Xml.XmlElement]$xmlToastNotificationAppId = $xmlToastNotificationConfig.AppId_Options
-$configToastNotificationAppId = [PSCustomObject]@{
+$configToastNotificationAppId = @{
 	AppId                 = Invoke-Expression -Command 'try { if (-not [string]::IsNullOrWhiteSpace($ExecutionContext.InvokeCommand.ExpandString([string]($xmlToastNotificationAppId.AppId)))) { $ExecutionContext.InvokeCommand.ExpandString([string]($xmlToastNotificationAppId.AppId)) } else { "PSADT.ToastNotification" } } catch { "PSADT.ToastNotification" }'
 	DisplayName           = Invoke-Expression -Command 'try { if (-not [string]::IsNullOrWhiteSpace($ExecutionContext.InvokeCommand.ExpandString([string]($xmlToastNotificationAppId.DisplayName)))) { $ExecutionContext.InvokeCommand.ExpandString([string]($xmlToastNotificationAppId.DisplayName)) } else { "PSADT Toast Notification" } } catch { "PSADT Toast Notification" }'
 	IconUri               = Invoke-Expression -Command 'try { if (-not [string]::IsNullOrWhiteSpace($ExecutionContext.InvokeCommand.ExpandString([string]($xmlToastNotificationAppId.IconUri)))) { $ExecutionContext.InvokeCommand.ExpandString([string]($xmlToastNotificationAppId.IconUri)) } else { "%SystemRoot%\ImmersiveControlPanel\images\logo.png" } } catch { "%SystemRoot%\ImmersiveControlPanel\images\logo.png" }'
@@ -196,7 +274,7 @@ $configToastNotificationAppId = [PSCustomObject]@{
 
 #  Get Toast Notification Scripts Options
 [Xml.XmlElement]$xmlToastNotificationScripts = $xmlToastNotificationConfig.Scripts_Options
-$configToastNotificationScripts = [PSCustomObject]@{
+$configToastNotificationScripts = @{
 	ScriptsEnabledOrder = [array]($xmlToastNotificationScripts.ScriptsEnabledOrder -split ",")
 	CommandVBS          = $ExecutionContext.InvokeCommand.ExpandString($xmlToastNotificationScripts.CommandVBS)
 	CommandCMD          = $ExecutionContext.InvokeCommand.ExpandString($xmlToastNotificationScripts.CommandCMD)
@@ -209,7 +287,7 @@ $SupportedFunctions = @("WelcomePrompt", "BalloonTip", "DialogBox", "Installatio
 
 foreach ($supportedFunction in $SupportedFunctions) {
 	$null = Set-Variable -Name "configToastNotification$($supportedFunction)Options" -Force -Value (
-		[PSCustomObject]@{
+		@{
 			UpdateInterval                      = Invoke-Expression -Command 'try { if ([int32]::Parse([string]($xmlToastNotificationConfig."$($supportedFunction)_Options".UpdateInterval)) -in @(1..10)) { [int32]::Parse([string]($xmlToastNotificationConfig."$($supportedFunction)_Options".UpdateInterval)) } else { 3 } } catch { 3 }'
 			ShowAttributionText                 = Invoke-Expression -Command 'try { [boolean]::Parse([string]($xmlToastNotificationConfig."$($supportedFunction)_Options".ShowAttributionText)) } catch { $true }'
 
@@ -236,8 +314,13 @@ foreach ($supportedFunction in $SupportedFunctions) {
 
 #  Define ScriptBlock for Loading Message UI Language Options (default for English if no localization found)
 [scriptblock]$xmlLoadLocalizedUIToastNotificationMessages = {
+	#  Default to English if the detected UI language is not available in the Toast Notification config file
+	if (-not ($xmlToastNotificationConfig.$xmlUIMessageLanguage)) {
+		$xmlUIMessageLanguage = "UI_Messages_EN"
+	}
+
 	[Xml.XmlElement]$xmlUIToastNotificationMessages = $xmlToastNotificationConfig.$xmlUIMessageLanguage
-	$configUIToastNotificationMessages = [PSCustomObject]@{
+	$configUIToastNotificationMessages = @{
 		AttributionTextAutoContinue               = [string]$xmlUIToastNotificationMessages.AttributionTextAutoContinue
 		RemainingTimeHours                        = [string]$xmlUIToastNotificationMessages.RemainingTimeHours
 		RemainingTimeHour                         = [string]$xmlUIToastNotificationMessages.RemainingTimeHour
@@ -284,24 +367,27 @@ foreach ($supportedFunction in $SupportedFunctions) {
 
 #  Defines the original functions to be renamed
 $FunctionsToRename = @()
-$FunctionsToRename += [PSCustomObject]@{ Scope = "Script"; Name = "Show-WelcomePromptOriginal"; Value = $(${Function:Show-WelcomePrompt}.ToString() -replace "http(s){0,1}:\/\/psappdeploytoolkit\.com", "") }
-$FunctionsToRename += [PSCustomObject]@{ Scope = "Script"; Name = "Show-BalloonTipOriginal"; Value = $(${Function:Show-BalloonTip}.ToString() -replace "http(s){0,1}:\/\/psappdeploytoolkit\.com", "") }
-$FunctionsToRename += [PSCustomObject]@{ Scope = "Script"; Name = "Show-DialogBoxOriginal"; Value = $(${Function:Show-DialogBox}.ToString() -replace "http(s){0,1}:\/\/psappdeploytoolkit\.com", "") }
-$FunctionsToRename += [PSCustomObject]@{ Scope = "Script"; Name = "Show-InstallationRestartPromptOriginal"; Value = $(${Function:Show-InstallationRestartPrompt}.ToString() -replace "http(s){0,1}:\/\/psappdeploytoolkit\.com", "") }
-$FunctionsToRename += [PSCustomObject]@{ Scope = "Script"; Name = "Show-InstallationPromptOriginal"; Value = $(${Function:Show-InstallationPrompt}.ToString() -replace "http(s){0,1}:\/\/psappdeploytoolkit\.com", "") }
-$FunctionsToRename += [PSCustomObject]@{ Scope = "Script"; Name = "Show-InstallationProgressOriginal"; Value = $(${Function:Show-InstallationProgress}.ToString() -replace "http(s){0,1}:\/\/psappdeploytoolkit\.com", "") }
-$FunctionsToRename += [PSCustomObject]@{ Scope = "Script"; Name = "Close-InstallationProgressOriginal"; Value = $(${Function:Close-InstallationProgress}.ToString() -replace "http(s){0,1}:\/\/psappdeploytoolkit\.com", "") }
+$FunctionsToRename += @{ Scope = "Script"; Name = "Show-WelcomePromptOriginal"; Value = $(${Function:Show-WelcomePrompt}.ToString() -replace "http(s)?:\/\/psappdeploytoolkit\.com", "") }
+$FunctionsToRename += @{ Scope = "Script"; Name = "Show-BalloonTipOriginal"; Value = $(${Function:Show-BalloonTip}.ToString() -replace "http(s)?:\/\/psappdeploytoolkit\.com", "") }
+$FunctionsToRename += @{ Scope = "Script"; Name = "Show-DialogBoxOriginal"; Value = $(${Function:Show-DialogBox}.ToString() -replace "http(s)?:\/\/psappdeploytoolkit\.com", "") }
+$FunctionsToRename += @{ Scope = "Script"; Name = "Show-InstallationRestartPromptOriginal"; Value = $(${Function:Show-InstallationRestartPrompt}.ToString() -replace "http(s)?:\/\/psappdeploytoolkit\.com", "") }
+$FunctionsToRename += @{ Scope = "Script"; Name = "Show-InstallationPromptOriginal"; Value = $(${Function:Show-InstallationPrompt}.ToString() -replace "http(s)?:\/\/psappdeploytoolkit\.com", "") }
+$FunctionsToRename += @{ Scope = "Script"; Name = "Show-InstallationProgressOriginal"; Value = $(${Function:Show-InstallationProgress}.ToString() -replace "http(s)?:\/\/psappdeploytoolkit\.com", "") }
+$FunctionsToRename += @{ Scope = "Script"; Name = "Close-InstallationProgressOriginal"; Value = $(${Function:Close-InstallationProgress}.ToString() -replace "http(s)?:\/\/psappdeploytoolkit\.com", "") }
+
+#  Added to dynamically removes changes introduced in commit https://github.com/PSAppDeployToolkit/PSAppDeployToolkit/commit/6d250d8b8d049bfdf5cc520a0ee2dec5226c54d6 that cause the Test-ToastNotificationAvailability function to fail
+$FunctionsToRename += @{ Scope = "Script"; Name = "Execute-Process"; Value = $(${Function:Execute-Process}.ToString() -replace '(?im)^\s*if\s*\(\s*\$WindowStyle\s*-eq\s*[''"]Hidden[''"]\s*\)[\s\n\r]*{[\s\n\r]*\$UseShellExecute\s*=\s*\$true[\s\n\r]*}\s*$', "") }
 
 #  Defines the required extension needed
 $ToastNotificationRequiredExtension = @()
-$ToastNotificationRequiredExtension += [PSCustomObject]@{ Name = "Data Extraction"; InstalledVersion = $DataExtractionExtScriptVersion; RequiredVersion = "1.0.1"; Link = "https://github.com/LFM8787/PSADT.DataExtraction" }
-$ToastNotificationRequiredExtension += [PSCustomObject]@{ Name = "Volatile Paths"; InstalledVersion = $VolatilePathsExtScriptVersion; RequiredVersion = "1.0.1"; Link = "https://github.com/LFM8787/PSADT.VolatilePaths" }
-$ToastNotificationRequiredExtension += [PSCustomObject]@{ Name = "Run As Active User"; InstalledVersion = $RunAsActiveUserExtScriptVersion; RequiredVersion = "1.0.1"; Link = "https://github.com/LFM8787/PSADT.RunAsActiveUser" }
+$ToastNotificationRequiredExtension += @{ Name = "Data Extraction"; InstalledVersion = $DataExtractionExtScriptVersion; RequiredVersion = "1.0.1"; Link = "https://github.com/LFM8787/PSADT.DataExtraction" }
+$ToastNotificationRequiredExtension += @{ Name = "Volatile Paths"; InstalledVersion = $VolatilePathsExtScriptVersion; RequiredVersion = "1.0.1"; Link = "https://github.com/LFM8787/PSADT.VolatilePaths" }
+$ToastNotificationRequiredExtension += @{ Name = "Run As Active User"; InstalledVersion = $RunAsActiveUserExtScriptVersion; RequiredVersion = "1.0.1"; Link = "https://github.com/LFM8787/PSADT.RunAsActiveUser" }
 
 ## Checks if required extensions are loaded
 $ToastNotificationRequiredExtension | ForEach-Object {
 	if ($null -eq $_.InstalledVersion) {
-		Write-Log -Message "$($_.Name) Extension needed, please download from: $($_.Link)." -Severity 3 -Source $ToastNotificationExtName
+		Write-Log -Message "$($_.Name) Extension needed (or loaded after Toast Notification Extension), please download from: $($_.Link) (or check requirements precedence)." -Severity 3 -Source $ToastNotificationExtName
 		Exit-Script -ExitCode 70701
 	}
 	elseif ([version]$_.InstalledVersion -lt [version]$_.RequiredVersion) {
@@ -498,20 +584,29 @@ $ToastNotificationRequiredExtension | ForEach-Object {
 
 #  ScriptBlock that loops until the Toast Notification gives a result
 [scriptblock]$ToastNotificationLoopUntilResult = {
+	## Start loop or errors iteration
+	$ToastNotificationErrorsIteration = 0
+
 	do {
 		## Checks if the Toast Notification is visible
 		$ToastNotificationVisible = Test-ToastNotificationVisible -Group $ToastNotificationGroup
+
+		if ($ToastNotificationVisible -and $ToastNotificationErrorsIteration -gt 0) {
+			Write-Log -Message "Toast Notification visible, restarting [$ToastNotificationErrorsIteration] errors iterations to 0." -Source ${CmdletName} -DebugMessage
+			$ToastNotificationErrorsIteration = 0
+		}
 
 		## Get Toast Notification result from environment variable if not assigned
 		if ([string]::IsNullOrWhiteSpace($Result)) {
 			$Result = Get-ToastNotificationResult -AllowedResults $AllowedResults -ResultVariable $ResultVariable
 		}
 
-		Write-Log -Message "Toast Notification result before switch [$Result]." -Severity 2 -Source ${CmdletName} -DebugMessage
+		Write-Log -Message "Toast Notification variables before switch [Result: $Result], [AllowedResults: $($AllowedResults -join ', ')], [ToastNotificationVisible: $ToastNotificationVisible], [ToastNotificationGroup:  $ToastNotificationGroup]." -Severity 2 -Source ${CmdletName} -DebugMessage
 
 		switch ($Result) {
 			#  Expected button clicked
 			{ $_ -in $AllowedResults } {
+				$ToastNotificationErrorsIteration = $configToastNotificationGeneralOptions.MaxToastNotificationErrorsThreshold
 				$ToastNotificationVisible = $false
 
 				if ($ToastNotificationGroup -eq "InstallationRestartPrompt") {
@@ -598,8 +693,16 @@ $ToastNotificationRequiredExtension | ForEach-Object {
 				Start-Sleep -Seconds $configFunctionOptions.UpdateInterval
 			}
 		}
+
+		if (-not $ToastNotificationVisible) {
+			$ToastNotificationErrorsIteration++
+
+			if ($configToastNotificationGeneralOptions.MaxToastNotificationErrorsThreshold -gt $ToastNotificationErrorsIteration) {
+				Write-Log -Message "Asynchronous Toast Notification result error, iteration $($ToastNotificationErrorsIteration) of $($configToastNotificationGeneralOptions.MaxToastNotificationErrorsThreshold)." -Severity 3 -Source ${CmdletName} -DebugMessage
+			}
+		}
 	}
-	while ($ToastNotificationVisible)
+	while ($ToastNotificationVisible -or $ToastNotificationErrorsIteration -le $configToastNotificationGeneralOptions.MaxToastNotificationErrorsThreshold)
 }
 #endregion
 
@@ -744,99 +847,28 @@ Function Get-RunningProcesses {
 		if ($configToolkitLogDebugMessage) { $DisableFunctionLogging = $false }
 	}
 	Process {
-		if ($SearchObjects -and $SearchObjects[0].ProcessName) {
-			if (-not($DisableFunctionLogging)) { Write-Log -Message "Checking for running applications: [$($SearchObjects.ProcessName -join ', ')]" -Source ${CmdletName} }
+		## Confirm input isn't null before proceeding.
+		if (-not $SearchObjects -or -not $SearchObjects[0].ProcessName) {
+			return $null
+		}
 
-			## Prepare a filter for Where-Object
-			[scriptblock]$whereObjectFilter = {
-				foreach ($SearchObject in $SearchObjects) {
-					if ($SearchObject.ProcessName -match "(?<=title:).+") {
-						## Logic to use when the 'title:...' is used
-						if ([string]::IsNullOrWhiteSpace($_.MainWindowTitle)) { continue }
+		if (-not($DisableFunctionLogging)) { Write-Log -Message "Checking for running applications: [$($SearchObjects.ProcessName -join ', ')]" -Source ${CmdletName} }
 
-						[string]$MainWindowTitleSearched = $null
-						$ExecutionContext.InvokeCommand.ExpandString($SearchObject.ProcessName) | Select-String -Pattern $ProcessObjectsTitlePathRegExPattern -AllMatches | ForEach-Object { if ([string]::IsNullOrWhiteSpace($MainWindowTitleSearched)) { $MainWindowTitleSearched = $_.matches.value } }
+		## Prepare a filter for Where-Object
+		[scriptblock]$whereObjectFilter = {
+			foreach ($SearchObject in $SearchObjects) {
+				if ($SearchObject.ProcessName -match "(?<=title:).+") {
+					## Logic to use when the 'title:...' is used
+					if ([string]::IsNullOrWhiteSpace($_.MainWindowTitle)) { continue }
 
-						if ([string]::IsNullOrWhiteSpace($MainWindowTitleSearched)) { continue }
-						elseif ($_.MainWindowTitle -like $MainWindowTitleSearched) {
-							#  Use the internal process description if not null or empty
-							if (-not [string]::IsNullOrWhiteSpace($_.Description)) { $processDescription = $_.Description }
-							#  Fall back on the process name if no description is provided by the process
-							else { $processDescription = $_.ProcessName }
+					[string]$MainWindowTitleSearched = $null
+					$ExecutionContext.InvokeCommand.ExpandString($SearchObject.ProcessName) | Select-String -Pattern $ProcessObjectsTitlePathRegExPattern -AllMatches | ForEach-Object { if ([string]::IsNullOrWhiteSpace($MainWindowTitleSearched)) { $MainWindowTitleSearched = $_.matches.value } }
 
-							if ([IO.Path]::GetFileNameWithoutExtension($_.ProcessName) -in $configToastNotificationGeneralOptions.CriticalProcesses_NeverKill) {
-								Write-Log -Message "The process [$([IO.Path]::GetFileNameWithoutExtension($_.ProcessName))] corresponding to application [$($processDescription)] matchs the pattern [$($SearchObject.ProcessName)] but it is tagged as critical and its termination could compromise system stability, it will be skipped." -Severity 2 -Source ${CmdletName}
-							}
-							else {
-								if (-not($DisableFunctionLogging)) { Write-Log -Message "The process [$([IO.Path]::GetFileNameWithoutExtension($_.ProcessName))] corresponding to application [$($processDescription)] matchs the pattern [$($SearchObject.ProcessName)] and will be added to the close app collection." -Source ${CmdletName} }
-
-								#  Adds the new detected process if not already in the list
-								if ($_.ProcessName -notin $SearchObjects.ProcessName) {
-									$Script:ProcessObjects += [PSCustomObject]@{
-										ProcessName        = $_.ProcessName
-										ProcessDescription = $processDescription
-									}
-								}
-
-								Add-Member -InputObject $_ -MemberType NoteProperty -Name "ProcessDescription" -Value $processDescription -Force -PassThru -ErrorAction SilentlyContinue
-								return $true
-							}
-						}
-					}
-					elseif ($SearchObject.ProcessName -match "(?<=path:).+") {
-						## Logic to use when the 'path:...' is used
-						if ([string]::IsNullOrWhiteSpace($_.Path)) { continue }
-
-						[string]$PathSearched = $null
-						$ExecutionContext.InvokeCommand.ExpandString($SearchObject.ProcessName) | Select-String -Pattern $ProcessObjectsTitlePathRegExPattern -AllMatches | ForEach-Object { if ([string]::IsNullOrWhiteSpace($PathSearched)) { $PathSearched = $_.matches.value } }
-
-						if ([string]::IsNullOrWhiteSpace($PathSearched)) { continue }
-						elseif ($_.Path -like $PathSearched) {
-							#  Use the internal process description if not null or empty
-							if (-not [string]::IsNullOrWhiteSpace($_.Description)) { $processDescription = $_.Description }
-							#  Fall back on the process name if no description is provided by the process
-							else { $processDescription = $_.ProcessName }
-
-							if ([IO.Path]::GetFileNameWithoutExtension($_.ProcessName) -in $configToastNotificationGeneralOptions.CriticalProcesses_NeverKill) {
-								Write-Log -Message "The process [$([IO.Path]::GetFileNameWithoutExtension($_.ProcessName))] corresponding to application [$($processDescription)] matchs the pattern [$($SearchObject.ProcessName)] but it is tagged as critical and its termination could compromise system stability, it will be skipped." -Severity 2 -Source ${CmdletName}
-							}
-							else {
-								if (-not($DisableFunctionLogging)) { Write-Log -Message "The process [$([IO.Path]::GetFileNameWithoutExtension($_.ProcessName))] corresponding to application [$($processDescription)] matchs the pattern [$($SearchObject.ProcessName)] and will be added to the close app collection." -Source ${CmdletName} }
-
-								#  Adds the new detected process if not already in the list
-								if ($_.ProcessName -notin $SearchObjects.ProcessName) {
-									$Script:ProcessObjects += [PSCustomObject]@{
-										ProcessName        = $_.ProcessName
-										ProcessDescription = $processDescription
-									}
-								}
-
-								Add-Member -InputObject $_ -MemberType NoteProperty -Name "ProcessDescription" -Value $processDescription -Force -PassThru -ErrorAction SilentlyContinue
-								return $true
-							}
-						}
-					}
-					elseif ($_.ProcessName -eq $SearchObject.ProcessName) {
-						## Logic to use when exact match
-
-						#  The description of the process provided as a Parameter to the function, e.g. -ProcessName "winword=Microsoft Office Word".
-						if ($SearchObject.ProcessDescription) { $processDescription = $SearchObject.ProcessDescription }
+					if ([string]::IsNullOrWhiteSpace($MainWindowTitleSearched)) { continue }
+					elseif ($_.MainWindowTitle -like $MainWindowTitleSearched) {
 						#  Use the internal process description if not null or empty
-						elseif (-not [string]::IsNullOrWhiteSpace($_.Description)) { $processDescription = $_.Description }
-						#  Fall back on the process name if no description is provided by the process or as a parameter to the function
-						else { $processDescription = $_.ProcessName }
-
-						Add-Member -InputObject $_ -MemberType NoteProperty -Name "ProcessDescription" -Value $processDescription -Force -PassThru -ErrorAction SilentlyContinue
-						return $true
-					}
-					elseif ($_.ProcessName -like $SearchObject.ProcessName) {
-						## Logic to use when matched with wildcards
-
-						#  The description of the process provided as a Parameter to the function, e.g. -ProcessName "winword=Microsoft Office Word".
-						if ($SearchObject.ProcessDescription) { $processDescription = $SearchObject.ProcessDescription }
-						#  Use the internal process description if not null or empty
-						elseif (-not [string]::IsNullOrWhiteSpace($_.Description)) { $processDescription = $_.Description }
-						#  Fall back on the process name if no description is provided by the process or as a parameter to the function
+						if (-not [string]::IsNullOrWhiteSpace($_.Description)) { $processDescription = $_.Description }
+						#  Fall back on the process name if no description is provided by the process
 						else { $processDescription = $_.ProcessName }
 
 						if ([IO.Path]::GetFileNameWithoutExtension($_.ProcessName) -in $configToastNotificationGeneralOptions.CriticalProcesses_NeverKill) {
@@ -858,38 +890,109 @@ Function Get-RunningProcesses {
 						}
 					}
 				}
-				return $false
-			}
+				elseif ($SearchObject.ProcessName -match "(?<=path:).+") {
+					## Logic to use when the 'path:...' is used
+					if ([string]::IsNullOrWhiteSpace($_.Path)) { continue }
 
-			## Get all running processes. Match against the process names to search for to find running processes.
-			[System.Diagnostics.Process[]]$runningProcesses = Get-Process | Where-Object -FilterScript $whereObjectFilter | Sort-Object ProcessName
+					[string]$PathSearched = $null
+					$ExecutionContext.InvokeCommand.ExpandString($SearchObject.ProcessName) | Select-String -Pattern $ProcessObjectsTitlePathRegExPattern -AllMatches | ForEach-Object { if ([string]::IsNullOrWhiteSpace($PathSearched)) { $PathSearched = $_.matches.value } }
 
-			if ($runningProcesses) {
-				## Select the process with visible windows or full path if they are repeated
-				$groupedProcesses = $runningProcesses | Group-Object -Property ProcessName | Where-Object { $_.Count -gt 1 } | Sort-Object Name
-				foreach ($groupedProcess in $groupedProcesses) {
-					#  Remove repeated processes
-					$runningProcesses = $runningProcesses | Where-Object { $_.ProcessName -ne $groupedProcess.Name }
+					if ([string]::IsNullOrWhiteSpace($PathSearched)) { continue }
+					elseif ($_.Path -like $PathSearched) {
+						#  Use the internal process description if not null or empty
+						if (-not [string]::IsNullOrWhiteSpace($_.Description)) { $processDescription = $_.Description }
+						#  Fall back on the process name if no description is provided by the process
+						else { $processDescription = $_.ProcessName }
 
-					#  Select the process
-					$selectedProcess = $groupedProcess.Group | Where-Object { -not [string]::IsNullOrWhiteSpace($_.MainWindowTitle) } | Select-Object -First 1
-					if ($null -eq $selectedProcess) { $selectedProcess = $groupedProcess.Group | Sort-Object Path -Descending | Select-Object -First 1 }
+						if ([IO.Path]::GetFileNameWithoutExtension($_.ProcessName) -in $configToastNotificationGeneralOptions.CriticalProcesses_NeverKill) {
+							Write-Log -Message "The process [$([IO.Path]::GetFileNameWithoutExtension($_.ProcessName))] corresponding to application [$($processDescription)] matchs the pattern [$($SearchObject.ProcessName)] but it is tagged as critical and its termination could compromise system stability, it will be skipped." -Severity 2 -Source ${CmdletName}
+						}
+						else {
+							if (-not($DisableFunctionLogging)) { Write-Log -Message "The process [$([IO.Path]::GetFileNameWithoutExtension($_.ProcessName))] corresponding to application [$($processDescription)] matchs the pattern [$($SearchObject.ProcessName)] and will be added to the close app collection." -Source ${CmdletName} }
 
-					#  Add selected process from grouped
-					$runningProcesses += $selectedProcess
+							#  Adds the new detected process if not already in the list
+							if ($_.ProcessName -notin $SearchObjects.ProcessName) {
+								$Script:ProcessObjects += [PSCustomObject]@{
+									ProcessName        = $_.ProcessName
+									ProcessDescription = $processDescription
+								}
+							}
+
+							Add-Member -InputObject $_ -MemberType NoteProperty -Name "ProcessDescription" -Value $processDescription -Force -PassThru -ErrorAction SilentlyContinue
+							return $true
+						}
+					}
 				}
+				elseif ($_.ProcessName -eq $SearchObject.ProcessName) {
+					## Logic to use when exact match
 
-				if (-not($DisableFunctionLogging)) { Write-Log -Message "The following processes are running: [$($runningProcesses.ProcessName -join ', ')]." -Source ${CmdletName} }
-				return $runningProcesses
+					#  The description of the process provided as a Parameter to the function, e.g. -ProcessName "winword=Microsoft Office Word".
+					if ($SearchObject.ProcessDescription) { $processDescription = $SearchObject.ProcessDescription }
+					#  Use the internal process description if not null or empty
+					elseif (-not [string]::IsNullOrWhiteSpace($_.Description)) { $processDescription = $_.Description }
+					#  Fall back on the process name if no description is provided by the process or as a parameter to the function
+					else { $processDescription = $_.ProcessName }
+
+					Add-Member -InputObject $_ -MemberType NoteProperty -Name "ProcessDescription" -Value $processDescription -Force -PassThru -ErrorAction SilentlyContinue
+					return $true
+				}
+				elseif ($_.ProcessName -like $SearchObject.ProcessName) {
+					## Logic to use when matched with wildcards
+
+					#  The description of the process provided as a Parameter to the function, e.g. -ProcessName "winword=Microsoft Office Word".
+					if ($SearchObject.ProcessDescription) { $processDescription = $SearchObject.ProcessDescription }
+					#  Use the internal process description if not null or empty
+					elseif (-not [string]::IsNullOrWhiteSpace($_.Description)) { $processDescription = $_.Description }
+					#  Fall back on the process name if no description is provided by the process or as a parameter to the function
+					else { $processDescription = $_.ProcessName }
+
+					if ([IO.Path]::GetFileNameWithoutExtension($_.ProcessName) -in $configToastNotificationGeneralOptions.CriticalProcesses_NeverKill) {
+						Write-Log -Message "The process [$([IO.Path]::GetFileNameWithoutExtension($_.ProcessName))] corresponding to application [$($processDescription)] matchs the pattern [$($SearchObject.ProcessName)] but it is tagged as critical and its termination could compromise system stability, it will be skipped." -Severity 2 -Source ${CmdletName}
+					}
+					else {
+						if (-not($DisableFunctionLogging)) { Write-Log -Message "The process [$([IO.Path]::GetFileNameWithoutExtension($_.ProcessName))] corresponding to application [$($processDescription)] matchs the pattern [$($SearchObject.ProcessName)] and will be added to the close app collection." -Source ${CmdletName} }
+
+						#  Adds the new detected process if not already in the list
+						if ($_.ProcessName -notin $SearchObjects.ProcessName) {
+							$Script:ProcessObjects += [PSCustomObject]@{
+								ProcessName        = $_.ProcessName
+								ProcessDescription = $processDescription
+							}
+						}
+
+						Add-Member -InputObject $_ -MemberType NoteProperty -Name "ProcessDescription" -Value $processDescription -Force -PassThru -ErrorAction SilentlyContinue
+						return $true
+					}
+				}
 			}
-			else {
-				if (-not($DisableFunctionLogging)) { Write-Log -Message "Specified applications are not running." -Source ${CmdletName} }
-				return $null
-			}
+			return $false
 		}
-		else {
+
+		## Get all running processes. Match against the process names to search for to find running processes.
+		[System.Diagnostics.Process[]]$runningProcesses = Get-Process | Where-Object -FilterScript $whereObjectFilter | Sort-Object ProcessName
+
+		## Return output if there's any.
+		if (-not $runningProcesses) {
+			if (-not($DisableFunctionLogging)) { Write-Log -Message "Specified applications are not running." -Source ${CmdletName} }
 			return $null
 		}
+
+		## Select the process with visible windows or full path if they are repeated
+		$groupedProcesses = $runningProcesses | Group-Object -Property ProcessName | Where-Object { $_.Count -gt 1 } | Sort-Object Name
+		foreach ($groupedProcess in $groupedProcesses) {
+			#  Remove repeated processes
+			$runningProcesses = $runningProcesses | Where-Object { $_.ProcessName -ne $groupedProcess.Name }
+
+			#  Select the process
+			$selectedProcess = $groupedProcess.Group | Where-Object { -not [string]::IsNullOrWhiteSpace($_.MainWindowTitle) } | Select-Object -First 1
+			if ($null -eq $selectedProcess) { $selectedProcess = $groupedProcess.Group | Sort-Object Path -Descending | Select-Object -First 1 }
+
+			#  Add selected process from grouped
+			$runningProcesses += $selectedProcess
+		}
+
+		if (-not($DisableFunctionLogging)) { Write-Log -Message "The following processes are running: [$($runningProcesses.ProcessName -join ', ')]." -Source ${CmdletName} }
+		return $runningProcesses
 	}
 	End {
 		Write-FunctionHeaderOrFooter -CmdletName ${CmdletName} -Footer
@@ -1156,6 +1259,7 @@ Function Show-InstallationWelcome {
 		}
 
 		## Check Deferral history and calculate remaining deferrals
+		[String]$deferDeadlineUniversal = $null
 		if (($allowDefer) -or ($AllowDeferCloseApps)) {
 			#  Set $allowDefer to true if $AllowDeferCloseApps is true
 			$allowDefer = $true
@@ -1243,6 +1347,7 @@ Function Show-InstallationWelcome {
 				[boolean]$forceCountdown = $true
 			}
 			Set-Variable -Name "closeAppsCountdownGlobal" -Value $closeAppsCountdown -Scope Script
+			$promptResult = $null
 
 			while ((Get-RunningProcesses -ProcessObjects $ProcessObjects -OutVariable "runningProcesses") -or (($promptResult -ne "Defer") -and ($promptResult -ne "Close"))) {
 				#  Check if we need to prompt the user to defer, to defer and close apps, or not to prompt them at all
@@ -1537,6 +1642,7 @@ Function Show-WelcomePrompt {
 		## Get the name of this function and write header
 		[string]${CmdletName} = $PSCmdlet.MyInvocation.MyCommand.Name
 		Write-FunctionHeaderOrFooter -CmdletName ${CmdletName} -CmdletBoundParameters $PSBoundParameters -Header
+		$showCountdown = $false
 
 		## Define function variables
 		$ToastNotificationGroup = "WelcomePrompt"
@@ -2082,14 +2188,17 @@ Function Show-BalloonTip {
 		$ResourceFolder = $configToastNotificationGeneralOptions.ResourceFolder
 	}
 	Process {
-		## Bypass if in silent mode
-		if ($deployModeSilent) {
-			Write-Log -Message "Bypassing function [${CmdletName}], because DeployMode [$deployMode]. Text: $BalloonTipText" -Severity 2 -Source ${CmdletName}
+		## Skip balloon if in silent mode, disabled in the config or presentation is detected
+		if (($deployModeSilent) -or (-not $configShowBalloonNotifications)) {
+			Write-Log -Message "Bypassing Show-BalloonTip [Mode:$deployMode, Config Show Balloon Notifications:$configShowBalloonNotifications]. BalloonTipText:$BalloonTipText" -Source ${CmdletName}
 			return
 		}
-		else {
-			Write-Log -Message "Executing function [${CmdletName}]. Text: $BalloonTipText" -Severity 2 -Source ${CmdletName}
+		if (Test-PowerPoint) {
+			Write-Log -Message "Bypassing Show-BalloonTip [Mode:$deployMode, Presentation Detected:$true]. BalloonTipText:$BalloonTipText" -Source ${CmdletName}
+			return
 		}
+
+		Write-Log -Message "Executing function [${CmdletName}]. Text: $BalloonTipText" -Source ${CmdletName}
 
 
 		#region Function reusable ScriptBlocks
@@ -2294,13 +2403,13 @@ Function Show-DialogBox {
 		$ResourceFolder = $configToastNotificationGeneralOptions.ResourceFolder
 	}
 	Process {
-		## Bypass if in non-interactive mode
-		if ($deployModeNonInteractive) {
-			Write-Log -Message "Bypassing function [${CmdletName}], because DeployMode [$deployMode]. Text: $Text" -Severity 2 -Source ${CmdletName}
+		## Bypass if in silent mode
+		if ($deployModeSilent) {
+			Write-Log -Message "Bypassing function [${CmdletName}], because DeployMode [$deployMode]. Text: $Text" -Source ${CmdletName}
 			return
 		}
 		else {
-			Write-Log -Message "Executing function [${CmdletName}]. Text: $Text" -Severity 2 -Source ${CmdletName}
+			Write-Log -Message "Executing function [${CmdletName}]. Text: $Text" -Source ${CmdletName}
 		}
 
 		## Reset times
@@ -2649,7 +2758,7 @@ Function Show-InstallationRestartPrompt {
 			$installRestartPromptParameters.Remove("NoSilentRestart")
 			$installRestartPromptParameters.Remove("SilentCountdownSeconds")
 			#  Prepare a list of parameters of this function as a string
-			[string]$installRestartPromptParameters = ($installRestartPromptParameters.GetEnumerator() | ForEach-Object { & $ResolveParameters $_ }) -join " "
+			[string]$installRestartPromptParameters = ($installRestartPromptParameters.GetEnumerator() | Resolve-Parameters) -join " "
 
 			## Start another powershell instance silently with function parameters from this function
 			Start-Process -FilePath "$($PSHome)\powershell.exe" -ArgumentList "-ExecutionPolicy Bypass -NoProfile -NoLogo -WindowStyle Hidden -Command &{& `'$scriptPath`' -ReferredInstallTitle `'$installTitle`' -ReferredInstallName `'$installName`' -ReferredLogName `'$logName`' -ShowInstallationRestartPrompt $installRestartPromptParameters -AsyncToolkitLaunch}" -WindowStyle Hidden -ErrorAction SilentlyContinue
@@ -3004,7 +3113,7 @@ Function Show-InstallationPrompt {
 			#  Remove the NoWait parameter so that the script is run synchronously in the new PowerShell session. This also prevents the function to loop indefinitely.
 			$installPromptParameters.Remove("NoWait")
 			#  Format the parameters as a string
-			[String]$installPromptParameters = ($installPromptParameters.GetEnumerator() | ForEach-Object { & $ResolveParameters $_ }) -join " "
+			[String]$installPromptParameters = ($installPromptParameters.GetEnumerator() | Resolve-Parameters) -join " "
 
 			## Initialize the Toast Notification Extension
 			try { $null = Test-ToastNotificationExtension } catch {}
@@ -3304,6 +3413,8 @@ Function Show-InstallationProgress {
 		The location of the progress window. Default: center of the screen.
 	.PARAMETER TopMost
 		Specifies whether the progress window should be topmost. Default: $true.
+	.PARAMETER Quiet
+		Specifies whether to not log the success of updating the progress message. Default: $false.
 	.INPUTS
 		None
 		You cannot pipe objects to this function.
@@ -3334,11 +3445,13 @@ Function Show-InstallationProgress {
 		[ValidateNotNullorEmpty()]
 		[string]$StatusMessage = $configProgressMessageInstall,
 		[Parameter(Mandatory = $false)]
-		[ValidateSet("Default", "BottomRight", "TopCenter")]
+		[ValidateSet("Default", "TopLeft", "Top", "TopRight", "TopCenter", "BottomLeft", "Bottom", "BottomRight")]
 		[string]$WindowLocation = "Default",
 		[Parameter(Mandatory = $false)]
 		[ValidateNotNullorEmpty()]
-		[boolean]$TopMost = $true
+		[boolean]$TopMost = $true,
+		[Parameter(Mandatory = $false)]
+		[switch]$Quiet
 	)
 
 	Begin {
@@ -3355,11 +3468,13 @@ Function Show-InstallationProgress {
 	Process {
 		## Bypass if in silent mode
 		if ($deployModeSilent) {
-			Write-Log -Message "Bypassing function [${CmdletName}], because DeployMode [$deployMode]. Status message: $StatusMessage" -Severity 2 -Source ${CmdletName}
+			if (-not $Quiet) {
+				Write-Log -Message "Bypassing Show-InstallationProgress [Mode: $deployMode]. Status message:$StatusMessage" -Source ${CmdletName}
+			}
 			return
 		}
 		else {
-			Write-Log -Message "Executing function [${CmdletName}]. Status message: $StatusMessage" -Severity 2 -Source ${CmdletName}
+			Write-Log -Message "Executing Show-InstallationProgress. Status message: $StatusMessage" -Source ${CmdletName}
 			New-Variable -Name "InstallationProgressFunctionCalled" -Value $true -Scope Global -Force
 		}
 
@@ -3567,7 +3682,7 @@ Function Close-InstallationProgress {
 	}
 	Process {
 		if (-not $Global:InstallationProgressFunctionCalled) {
-			Write-Log -Message "Bypassing function [${CmdletName}], no call to Show-InstallationProgress function registered." -Source ${CmdletName} -DebugMessage
+			Write-Log -Message "Bypassing Close-InstallationProgress, no call to Show-InstallationProgress function registered." -Source ${CmdletName} -DebugMessage
 			return
 		}
 
@@ -4024,7 +4139,7 @@ Function Block-AppExecution {
 	Process {
 		## Bypass if no Admin rights
 		if (-not $IsAdmin) {
-			Write-Log -Message "Bypassing function [${CmdletName}], administrator rights are needed." -Severity 2 -Source ${CmdletName}
+			Write-Log -Message "Bypassing function [${CmdletName}], because [User: $ProcessNTAccount] is not admin." -Source ${CmdletName}
 			return
 		}
 
@@ -4198,7 +4313,7 @@ Function Unblock-AppExecution {
 	Process {
 		## Bypass if no Admin rights
 		if (-not $IsAdmin) {
-			Write-Log -Message "Bypassing function [${CmdletName}], administrator rights are needed." -Source ${CmdletName}
+			Write-Log -Message "Bypassing function [${CmdletName}], because [User: $ProcessNTAccount] is not admin." -Source ${CmdletName}
 			return
 		}
 
@@ -4638,14 +4753,14 @@ Function Invoke-ToastNotificationAsUser {
 				## Wrap WinRT event using PoshWinRt.dll
 				try {
 					if ([int]$PSVersionMajor -lt 7) {
-						$EventActivated = [PSCustomObject]@{ InputObject = Register-WrappedToastNotificationEvent -Target $ToastNotificationObject -EventName "Activated"; EventName = "FireEvent" }
-						$EventDismissed = [PSCustomObject]@{ InputObject = Register-WrappedToastNotificationEvent -Target $ToastNotificationObject -EventName "Dismissed"; EventName = "FireEvent" }
-						$EventFailed = [PSCustomObject]@{ InputObject = Register-WrappedToastNotificationEvent -Target $ToastNotificationObject -EventName "Failed"; EventName = "FireEvent" }
+						$EventActivated = @{ InputObject = Register-WrappedToastNotificationEvent -Target $ToastNotificationObject -EventName "Activated"; EventName = "FireEvent" }
+						$EventDismissed = @{ InputObject = Register-WrappedToastNotificationEvent -Target $ToastNotificationObject -EventName "Dismissed"; EventName = "FireEvent" }
+						$EventFailed = @{ InputObject = Register-WrappedToastNotificationEvent -Target $ToastNotificationObject -EventName "Failed"; EventName = "FireEvent" }
 					}
 					else {
-						$EventActivated = [PSCustomObject]@{ InputObject = $ToastNotificationObject; EventName = "Activated" }
-						$EventDismissed = [PSCustomObject]@{ InputObject = $ToastNotificationObject; EventName = "Dismissed" }
-						$EventFailed = [PSCustomObject]@{ InputObject = $ToastNotificationObject; EventName = "Failed" }
+						$EventActivated = @{ InputObject = $ToastNotificationObject; EventName = "Activated" }
+						$EventDismissed = @{ InputObject = $ToastNotificationObject; EventName = "Dismissed" }
+						$EventFailed = @{ InputObject = $ToastNotificationObject; EventName = "Failed" }
 					}
 				}
 				catch {
@@ -4941,13 +5056,15 @@ Function Invoke-ToastNotificationAsUser {
 						$PoshWinRTLibrarySourcePath = $envPoshWinRTLibraryPath
 						$PoshWinRTLibraryDestinationPath = Join-Path -Path $ResourceFolder -ChildPath (Split-Path -Path $PoshWinRTLibrarySourcePath -Leaf)
 
-						try {
-							Copy-File -Path $PoshWinRTLibrarySourcePath -Destination $PoshWinRTLibraryDestinationPath -ContinueOnError $false
-						}
-						catch {
-							$configToastNotificationGeneralOptions.SubscribeToEvents = $false
-							Write-Log -Message "Unable to load required library to subscribe to Toast Notification Events in Powershell versions below 7.`r`n$(Resolve-Error)" -Severity 3 -Source ${CmdletName}
-							return "RetryWithProtocol"
+						if (-not (Test-Path -Path $PoshWinRTLibraryDestinationPath -ErrorAction SilentlyContinue)) {
+							try {
+								Copy-File -Path $PoshWinRTLibrarySourcePath -Destination $PoshWinRTLibraryDestinationPath -ContinueOnError $false
+							}
+							catch {
+								$configToastNotificationGeneralOptions.SubscribeToEvents = $false
+								Write-Log -Message "Unable to load required library to subscribe to Toast Notification Events in Powershell versions below 7.`r`n$(Resolve-Error)" -Severity 3 -Source ${CmdletName}
+								return "RetryWithProtocol"
+							}
 						}
 					}
 					else {
@@ -6656,6 +6773,9 @@ else {
 ## Append localized UI messages from Toast Notification config XML
 $xmlLoadLocalizedUIMessages = [scriptblock]::Create($xmlLoadLocalizedUIMessages.ToString() + ";" + $xmlLoadLocalizedUIToastNotificationMessages.ToString())
 
+## Dot source ScriptBlock to load localized UI messages from config XML
+. $xmlLoadLocalizedUIMessages
+
 ## If the ShowBlockedAppDialog Parameter is specified, only call that function.
 if ($showBlockedAppDialog) {
 	## Set the install phase to asynchronous if the script was not dot sourced, i.e. called with parameters
@@ -6671,9 +6791,6 @@ if ($showBlockedAppDialog) {
 
 	## Dot source ScriptBlock to create temporary directory of logged on user
 	. $GetLoggedOnUserTempPath
-
-	## Dot source ScriptBlock to load localized UI messages from config XML
-	. $xmlLoadLocalizedUIMessages
 
 	## Dot source ScriptBlock to get system DPI scale factor
 	. $GetDisplayScaleFactor
